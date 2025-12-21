@@ -1,0 +1,261 @@
+.\" stegpng - Steganographic file encoder/decoder for PNG and JPEG images
+.\" Man page for stegpng
+.TH STEGPNG 1 "December 2024" "stegpng 1.0.0" "HaxBox Tools"
+.SH NAME
+stegpng \- steganographic file encoder/decoder for PNG and JPEG images
+.SH SYNOPSIS
+.B stegpng
+.RI [ options ]
+.B encode
+.I input_file
+.RI [ encode_options ]
+.PP
+.B stegpng
+.RI [ options ]
+.B decode
+.I input_image
+.RI [ decode_options ]
+.PP
+.B stegpng
+.RI [ options ]
+.B info
+.I input_image
+.SH DESCRIPTION
+.B stegpng
+is a steganographic tool that allows you to hide arbitrary files inside PNG
+or JPEG images, and extract them later. It supports two embedding methods:
+appending data after the image end marker (default) or embedding in image
+metadata chunks (zTXt for PNG, COM for JPEG).
+.PP
+The tool also supports optional XOR obfuscation with a user-provided key to
+add a layer of protection to the hidden data.
+.SH COMMANDS
+.TP
+.B encode
+Encode a file into an image. Creates a PNG or JPEG image containing the
+hidden payload.
+.TP
+.B decode
+Extract a hidden file from an image. Recovers the original payload from
+a previously encoded image.
+.TP
+.B info
+Display information about an image file, including detected hidden data
+and its size.
+.SH OPTIONS
+.SS Global Options
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit.
+.TP
+.BR \-v ", " \-\-version
+Show program version and exit.
+.SS Encode Options
+.TP
+.BI \-o " output" "\fR, \fP" \-\-output " output"
+Output image file. Default: <input_basename>.png
+.TP
+.BI \-b " base" "\fR, \fP" \-\-base " base"
+Use an existing image as the cover image. The payload will be added to
+this image. The base image format must match the output format.
+.TP
+.BI \-k " key" "\fR, \fP" \-\-key " key"
+XOR key for obfuscation. The same key must be used during decoding.
+.TP
+.BI \-m " method" "\fR, \fP" \-\-method " method"
+Embedding method. Valid values:
+.RS
+.TP
+.B append
+(default) Append data after the image end marker. Faster and works with
+any file size.
+.TP
+.B metadata
+Embed in image metadata chunks. May survive some image processing tools
+that preserve metadata.
+.RE
+.TP
+.B \-\-verbose
+Enable verbose output.
+.SS Decode Options
+.TP
+.BI \-o " output" "\fR, \fP" \-\-output " output"
+Output file for extracted data. Default: <input_basename>.extracted
+.TP
+.BI \-k " key" "\fR, \fP" \-\-key " key"
+XOR key for decryption. Must match the key used during encoding.
+.TP
+.BI \-m " method" "\fR, \fP" \-\-method " method"
+Extraction method. Must match the method used during encoding.
+Valid values: append, metadata
+.TP
+.B \-\-verbose
+Enable verbose output.
+.SH EMBEDDING METHODS
+.SS Append Method (default)
+Data is appended after the official end of the image file (IEND chunk for
+PNG, EOI marker for JPEG). This method:
+.IP \(bu 2
+Works with any payload size
+.IP \(bu 2
+Is very fast
+.IP \(bu 2
+Images remain valid and displayable
+.IP \(bu 2
+Data may be lost if the image is re-processed or re-saved
+.SS Metadata Method
+Data is embedded in metadata chunks (zTXt for PNG, COM for JPEG). This method:
+.IP \(bu 2
+May survive some image processing tools
+.IP \(bu 2
+Is slightly slower due to compression (PNG) or base64 encoding (JPEG)
+.IP \(bu 2
+Large payloads are split into multiple chunks (JPEG)
+.IP \(bu 2
+Images remain valid and displayable
+.SH EXAMPLES
+.SS Basic encoding and decoding
+.PP
+Encode a text file into a PNG image:
+.PP
+.RS
+.nf
+stegpng encode secret.txt -o hidden.png
+.fi
+.RE
+.PP
+Decode the hidden file:
+.PP
+.RS
+.nf
+stegpng decode hidden.png -o recovered.txt
+.fi
+.RE
+.SS Using XOR obfuscation
+.PP
+Encode with a password:
+.PP
+.RS
+.nf
+stegpng encode confidential.pdf -o vacation.png -k "MySecretKey123"
+.fi
+.RE
+.PP
+Decode with the same password:
+.PP
+.RS
+.nf
+stegpng decode vacation.png -o recovered.pdf -k "MySecretKey123"
+.fi
+.RE
+.SS Using a cover image
+.PP
+Hide data inside an existing photo:
+.PP
+.RS
+.nf
+stegpng encode passwords.txt -o vacation_modified.jpg -b vacation.jpg
+.fi
+.RE
+.SS Using metadata method
+.PP
+Embed in image metadata (may survive some processing):
+.PP
+.RS
+.nf
+stegpng encode data.bin -o photo.png -m metadata
+stegpng decode photo.png -o data.bin -m metadata
+.fi
+.RE
+.SS Checking for hidden data
+.PP
+Show information about an image:
+.PP
+.RS
+.nf
+stegpng info suspicious.png
+.fi
+.RE
+.PP
+Output example:
+.PP
+.RS
+.nf
+File: suspicious.png
+Format: PNG
+Size: 102400 bytes
+Hidden data (append method): 5120 bytes
+.fi
+.RE
+.SS Encoding binary files
+.PP
+Hide an archive inside an image:
+.PP
+.RS
+.nf
+stegpng encode backup.tar.gz -o landscape.png -k "archive2024"
+stegpng decode landscape.png -o recovered.tar.gz -k "archive2024"
+.fi
+.RE
+.SS Creating a JPEG output
+.PP
+Use .jpg or .jpeg extension for JPEG format:
+.PP
+.RS
+.nf
+stegpng encode secret.txt -o hidden.jpg
+stegpng decode hidden.jpg -o secret.txt
+.fi
+.RE
+.SH SUPPORTED FORMATS
+.SS Input (encode command)
+Any file type can be encoded.
+.SS Input (decode command)
+.IP \(bu 2
+PNG images (magic: \\x89PNG)
+.IP \(bu 2
+JPEG images (magic: \\xFF\\xD8)
+.SS Output (encode command)
+.IP \(bu 2
+PNG (default, or when output has .png extension)
+.IP \(bu 2
+JPEG (when output has .jpg or .jpeg extension)
+.SH SECURITY CONSIDERATIONS
+.IP \(bu 2
+The XOR obfuscation is NOT encryption. It provides only basic protection
+against casual inspection. For sensitive data, encrypt the file before
+encoding (e.g., using GPG).
+.IP \(bu 2
+Hidden data can be detected by examining file size or analyzing the image
+structure.
+.IP \(bu 2
+The append method leaves obvious traces when examining the raw file.
+.IP \(bu 2
+Metadata method embeds data in standard image chunks, which may be
+preserved or stripped depending on the tool processing the image.
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+Error occurred (file not found, invalid format, etc.)
+.SH FILES
+No configuration files are used.
+.SH AUTHOR
+EdgeOfAssembly <haxbox2000@gmail.com>
+.SH REPORTING BUGS
+Report bugs to: haxbox2000@gmail.com
+.br
+Project homepage: https://github.com/EdgeOfAssembly/HaxBox
+.SH COPYRIGHT
+Copyright \(co 2024 EdgeOfAssembly.
+.PP
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.PP
+Licensed under GPLv3. Commercial licenses available.
+.SH SEE ALSO
+.BR steghide (1),
+.BR outguess (1),
+.BR gpg (1)

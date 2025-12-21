@@ -1,0 +1,294 @@
+.\" screenrec - Flexible screen and audio recorder
+.\" Man page for screenrec
+.TH SCREENREC 1 "December 2024" "screenrec 1.0.0" "HaxBox Tools"
+.SH NAME
+screenrec \- flexible screen and audio recorder (gnome-screenshot style)
+.SH SYNOPSIS
+.B screenrec
+.RI [ options ]
+.SH DESCRIPTION
+.B screenrec
+is a flexible screen recorder that captures video from your screen with
+optional audio recording. It supports multiple capture modes similar to
+gnome-screenshot:
+.IP \(bu 2
+Full screen (like PrtScn)
+.IP \(bu 2
+Window selection - click to select (like Alt+PrtScn)
+.IP \(bu 2
+Area selection - draw a rectangle (like Shift+PrtScn)
+.PP
+The tool uses mss for fast screen capture, OpenCV for video encoding,
+and PulseAudio/ALSA for audio recording. Video and audio are recorded
+separately and merged using ffmpeg.
+.SH OPTIONS
+.SS Output Options
+.TP
+.BI \-o " file" "\fR, \fP" \-\-output " file"
+Output video file (default: /tmp/screenrec.mp4)
+.TP
+.BI \-d " duration" "\fR, \fP" \-\-duration " duration"
+Recording duration. Supports multiple formats:
+.RS
+.IP \(bu 2
+Plain seconds: 30, 60, 120
+.IP \(bu 2
+With suffix: 30s, 1m, 1h
+.IP \(bu 2
+Combined: 1m30s, 1h30m
+.RE
+.IP
+Default: 30 seconds
+.TP
+.BI \-\-delay " seconds"
+Delay in seconds before recording starts. Useful to give yourself time
+to switch windows or prepare the screen.
+.TP
+.BI \-\-fps " fps"
+Frames per second for video recording (default: 30, max: 60)
+.SS Capture Mode Options
+These options are mutually exclusive. If none is specified, rectangle
+selection mode (--select) is used by default.
+.TP
+.B \-\-fullscreen
+Record the entire screen (like PrtScn in gnome-screenshot).
+.TP
+.B \-\-window
+Interactive window selection mode (like Alt+PrtScn). Click on the window
+you want to record. Requires xdotool.
+.TP
+.B \-\-select
+Interactive area selection mode (like Shift+PrtScn). Click and drag to draw
+a rectangle defining the recording area. This is the default mode.
+.TP
+.BI \-\-monitor " N"
+Record a specific monitor. N is the monitor number (1 = primary monitor,
+2 = secondary, etc.). Use --list-monitors to see available monitors.
+.TP
+.BI \-\-window\-id " ID"
+Record a specific window by its X11 window ID. Use xdotool or wmctrl
+to find window IDs.
+.TP
+.BI \-\-region " X,Y,W,H"
+Record a specific screen region defined by X,Y coordinates and
+width,height in pixels.
+.SS Audio Options
+.TP
+.BR \-a ", " \-\-audio
+Enable audio recording. Records desktop audio by default (monitor of
+the default PulseAudio sink). Requires PulseAudio tools and ffmpeg.
+.TP
+.BI \-\-audio\-source " source"
+Specify a PulseAudio source name for audio recording. Use --list-audio
+to see available sources.
+.TP
+.B \-\-list\-audio
+List available audio sources and exit.
+.SS Keyboard Shortcut Setup
+.TP
+.B \-\-bind\-keys
+Show detailed instructions for setting up custom keyboard shortcuts
+in various desktop environments (GNOME, KDE, XFCE, i3/Sway). Useful
+if gnome-screenshot already uses the default PrtScn keys.
+.SS Other Options
+.TP
+.B \-\-list\-monitors
+List available monitors with their dimensions and exit.
+.TP
+.B \-\-list\-windows
+List visible windows with their IDs and titles and exit. Requires wmctrl.
+.TP
+.BR \-v ", " \-\-verbose
+Show progress information during recording (delay countdown, remaining time).
+.TP
+.BR \-V ", " \-\-version
+Show version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit.
+.SH DEPENDENCIES
+.SS Required
+.TP
+.B Python packages
+opencv-python-headless, mss, numpy, pynput
+.PP
+Install with: pip install opencv-python-headless mss numpy pynput
+.SS Optional (for full functionality)
+.TP
+.B xdotool
+Required for --window mode (apt install xdotool)
+.TP
+.B wmctrl
+Required for --list-windows (apt install wmctrl)
+.TP
+.B ffmpeg
+Required for audio recording and merging (apt install ffmpeg)
+.TP
+.B PulseAudio tools
+Required for audio recording (usually pre-installed on Linux desktops)
+.SH EXAMPLES
+.SS Basic Recording (gnome-screenshot style)
+.PP
+Draw area to record for 30 seconds (like Shift+PrtScn):
+.PP
+.RS
+.nf
+screenrec
+.fi
+.RE
+.PP
+Record full screen with 3 second delay (like PrtScn):
+.PP
+.RS
+.nf
+screenrec --fullscreen --delay 3 -d 60
+.fi
+.RE
+.PP
+Click on a window to record (like Alt+PrtScn):
+.PP
+.RS
+.nf
+screenrec --window --delay 3 -d 30
+.fi
+.RE
+.SS With Delay and Audio
+.PP
+Record full screen with 5 second delay and audio:
+.PP
+.RS
+.nf
+screenrec --fullscreen --delay 5 --audio -d 60
+.fi
+.RE
+.PP
+Record a window with delay:
+.PP
+.RS
+.nf
+screenrec --window --delay 5 -d 2m -v
+.fi
+.RE
+.SS Specific Regions
+.PP
+Record primary monitor only:
+.PP
+.RS
+.nf
+screenrec --monitor 1 -d 30
+.fi
+.RE
+.PP
+Record a specific 800x600 region at position (100, 100):
+.PP
+.RS
+.nf
+screenrec --region 100,100,800,600 -d 30
+.fi
+.RE
+.SS Custom Output
+.PP
+Save to a specific file with higher frame rate:
+.PP
+.RS
+.nf
+screenrec --fullscreen --fps 60 -o ~/Videos/recording.mp4 -d 1m
+.fi
+.RE
+.SS Setting Up Keyboard Shortcuts
+.PP
+Show instructions for binding custom keys:
+.PP
+.RS
+.nf
+screenrec --bind-keys
+.fi
+.RE
+.PP
+This displays commands for GNOME, KDE, XFCE, i3/Sway, and xbindkeys.
+.SS Discovery Commands
+.PP
+List available monitors:
+.PP
+.RS
+.nf
+screenrec --list-monitors
+.fi
+.RE
+.PP
+List available windows:
+.PP
+.RS
+.nf
+screenrec --list-windows
+.fi
+.RE
+.PP
+List audio sources:
+.PP
+.RS
+.nf
+screenrec --list-audio
+.fi
+.RE
+.SH KEYBOARD SHORTCUTS
+.PP
+If gnome-screenshot uses the default keys (PrtScn, Alt+PrtScn, Shift+PrtScn),
+you can bind screenrec to alternative keys like Super+Print combinations.
+.PP
+Run
+.B screenrec --bind-keys
+for detailed setup instructions for your desktop environment.
+.SH OUTPUT FORMAT
+.PP
+Videos are saved in MP4 format using the MPEG-4 Part 2 codec (mp4v).
+When audio is recorded, it is encoded as AAC and merged with the video
+using ffmpeg.
+.SH NOTES
+.IP \(bu 2
+Video dimensions are automatically adjusted to be even numbers (required
+for video encoding).
+.IP \(bu 2
+Minimum recording region is 10x10 pixels.
+.IP \(bu 2
+Recording can be stopped early by pressing Ctrl+C.
+.IP \(bu 2
+For window recording, the window geometry is captured at the start;
+if the window moves during recording, it won't be followed.
+.IP \(bu 2
+Desktop audio recording captures all system audio output, not microphone
+input. Use --audio-source to specify a different source.
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+Error (missing dependencies, invalid options, recording failed)
+.SH ENVIRONMENT
+.TP
+.B DISPLAY
+X11 display to use. Required for screen capture.
+.SH FILES
+.TP
+.I /tmp/screenrec.mp4
+Default output file location.
+.SH AUTHOR
+EdgeOfAssembly <haxbox2000@gmail.com>
+.SH REPORTING BUGS
+Report bugs to: haxbox2000@gmail.com
+.br
+Project homepage: https://github.com/EdgeOfAssembly/HaxBox
+.SH COPYRIGHT
+Copyright \(co 2024 EdgeOfAssembly.
+.PP
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.PP
+Licensed under GPLv3. Commercial licenses available.
+.SH SEE ALSO
+.BR gnome-screenshot (1),
+.BR ffmpeg (1),
+.BR xdotool (1),
+.BR wmctrl (1),
+.BR pactl (1)

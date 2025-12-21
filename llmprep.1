@@ -1,0 +1,248 @@
+.\" llmprep - Prepare a codebase for LLM analysis
+.\" Man page for llmprep
+.TH LLMPREP 1 "December 2024" "llmprep 1.0.0" "HaxBox Tools"
+.SH NAME
+llmprep \- prepare a codebase for LLM analysis
+.SH SYNOPSIS
+.B llmprep
+.RI [ options ]
+.RI [ project_dir ]
+.SH DESCRIPTION
+.B llmprep
+analyzes a software project and generates documentation suitable for
+use as context when working with Large Language Models (LLMs). It creates
+a structured overview of the codebase including directory structure, code
+statistics, and language-specific documentation.
+.PP
+The tool automatically detects the primary programming languages used and
+runs appropriate analysis tools (Doxygen for C/C++, pyreverse for Python,
+ctags for symbol indexing).
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit.
+.TP
+.BR \-v ", " \-\-version
+Show version information and exit.
+.TP
+.BI \-o " dir" "\fR, \fP" \-\-output " dir"
+Output directory name (default: llm_prep). The directory will be created
+inside the project directory.
+.TP
+.BI \-d " depth" "\fR, \fP" \-\-depth " depth"
+Maximum depth for directory tree listing (default: 4).
+.TP
+.BI \-\-exclude " pattern"
+Pipe-separated pattern of directories/files to exclude from tree listing.
+Default: __pycache__|build|dist|node_modules|.git|*.o|*.so|*.a|*.pyc|.venv|venv|env
+.TP
+.B \-\-no\-doxygen
+Skip Doxygen documentation generation for C/C++ projects.
+.TP
+.B \-\-no\-pyreverse
+Skip pyreverse diagram generation for Python projects.
+.TP
+.B \-\-no\-ctags
+Skip ctags symbol index generation.
+.TP
+.BR \-q ", " \-\-quiet
+Suppress progress output.
+.SH OUTPUT FILES
+.B llmprep
+creates the following files in the output directory:
+.TP
+.B codebase_overview.md
+Main overview file combining all analysis results. This is the primary
+file to use as LLM context.
+.TP
+.B codebase_structure.txt
+Directory tree listing of the project.
+.TP
+.B codebase_stats.txt
+Code statistics from cloc (if available).
+.TP
+.B llm_system_prompt.md
+Suggested system prompt for LLM sessions, tailored to the detected
+programming languages.
+.TP
+.B project_guidance.md
+Best practices and guidelines for the detected languages.
+.TP
+.B tags
+ctags symbol index (if ctags is available).
+.TP
+.B dot_graphs_doxygen/
+Doxygen-generated DOT graphs for C/C++ projects (call graphs,
+dependency graphs, etc.).
+.TP
+.B dot_graphs_pyreverse/
+Pyreverse-generated DOT graphs showing Python class hierarchies
+and package structure.
+.TP
+.B doxygen_output/
+Full Doxygen HTML documentation (for C/C++ projects).
+.SH OPTIONAL DEPENDENCIES
+.B llmprep
+works without external dependencies but produces better results when
+these tools are available:
+.TP
+.B tree
+Directory tree listing (apt install tree)
+.TP
+.B cloc
+Code statistics (apt install cloc)
+.TP
+.B ctags
+Symbol indexing (apt install universal-ctags)
+.TP
+.B doxygen
+C/C++ documentation (apt install doxygen)
+.TP
+.B graphviz
+Graph generation for Doxygen (apt install graphviz)
+.TP
+.B pyreverse
+Python UML diagrams (pip install pylint)
+.SH EXAMPLES
+.SS Basic Usage
+.PP
+Analyze the current directory:
+.PP
+.RS
+.nf
+llmprep .
+.fi
+.RE
+.PP
+Analyze a specific project:
+.PP
+.RS
+.nf
+llmprep /path/to/myproject
+.fi
+.RE
+.SS Custom Output Location
+.PP
+Specify a different output directory name:
+.PP
+.RS
+.nf
+llmprep /path/to/project -o analysis
+.fi
+.RE
+.PP
+Output will be created at /path/to/project/analysis/
+.SS Skip Heavy Processing
+.PP
+For large projects, skip Doxygen (which can be slow):
+.PP
+.RS
+.nf
+llmprep . --no-doxygen
+.fi
+.RE
+.PP
+Skip all optional tools for fast overview:
+.PP
+.RS
+.nf
+llmprep . --no-doxygen --no-pyreverse --no-ctags
+.fi
+.RE
+.SS Adjust Tree Depth
+.PP
+Show deeper directory structure:
+.PP
+.RS
+.nf
+llmprep . -d 6
+.fi
+.RE
+.SS Custom Exclusions
+.PP
+Exclude additional directories from tree:
+.PP
+.RS
+.nf
+llmprep . --exclude "__pycache__|build|.git|vendor|third_party"
+.fi
+.RE
+.SS Using with LLMs
+.PP
+After running llmprep, copy the overview file content:
+.PP
+.RS
+.nf
+cat llm_prep/codebase_overview.md | xclip -selection clipboard
+.fi
+.RE
+.PP
+Then paste into your LLM conversation as context.
+.PP
+For architecture questions, also include relevant DOT graphs:
+.PP
+.RS
+.nf
+cat llm_prep/dot_graphs_doxygen/main_8c__incl.dot
+.fi
+.RE
+.SH WORKFLOW EXAMPLE
+.PP
+Typical workflow for analyzing a project:
+.PP
+.RS
+.nf
+# 1. Run llmprep
+cd /path/to/project
+llmprep .
+
+# 2. Review the overview
+less llm_prep/codebase_overview.md
+
+# 3. Start LLM session with context
+# Paste contents of codebase_overview.md
+
+# 4. For detailed questions, provide additional context
+# - Paste specific file contents
+# - Paste DOT graphs for architecture questions
+# - Reference the tags file for symbol locations
+.fi
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Success
+.TP
+.B 1
+Error occurred (invalid directory, etc.)
+.SH FILES
+.TP
+.I llm_prep/
+Default output directory created in the project root.
+.SH NOTES
+.IP \(bu 2
+The tool changes to the project directory during execution but
+restores the original working directory on exit.
+.IP \(bu 2
+DOT graphs can be visualized with Graphviz: dot -Tpng graph.dot -o graph.png
+.IP \(bu 2
+For very large projects, consider using --no-doxygen as Doxygen can
+take significant time.
+.SH AUTHOR
+EdgeOfAssembly <haxbox2000@gmail.com>
+.SH REPORTING BUGS
+Report bugs to: haxbox2000@gmail.com
+.br
+Project homepage: https://github.com/EdgeOfAssembly/HaxBox
+.SH COPYRIGHT
+Copyright \(co 2024 EdgeOfAssembly.
+.PP
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+.PP
+Licensed under GPLv3. Commercial licenses available.
+.SH SEE ALSO
+.BR cloc (1),
+.BR ctags (1),
+.BR doxygen (1),
+.BR tree (1)

@@ -1,10 +1,16 @@
-# PDF Tools
+# HaxBox
 
-Advanced PDF splitting, merging, OCR, and optimization tools.
+A collection of useful command-line tools for Linux.
 
-This package contains two powerful command-line tools:
-- **pdfsplit** - PDF manipulation (split, merge, extract, optimize)
-- **pdfocr** - OCR extraction from PDFs and images
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| **pdfsplit** | PDF manipulation (split, merge, extract, optimize) |
+| **pdfocr** | OCR extraction from PDFs and images |
+| **stegpng** | Steganographic file encoder/decoder for PNG/JPEG images |
+| **llmprep** | Prepare codebases for LLM analysis |
+| **screenrec** | Flexible screen and audio recorder |
 
 ## License
 
@@ -21,28 +27,24 @@ Contact: haxbox2000@gmail.com
 - Python 3.8+
 - pip (Python package manager)
 
-### Install Dependencies
+### Install All Dependencies
 
 ```bash
-# Core dependencies
-pip install PyPDF2 pymupdf pillow tqdm
+# Core dependencies for all tools
+pip install pypdf pymupdf pillow tqdm numpy
 
-# Additional dependencies for pdfocr
-pip install pytesseract pdf2image opencv-python-headless numpy
+# For pdfocr
+pip install pytesseract pdf2image opencv-python-headless
+pip install easyocr  # Optional, better quality OCR
 
-# For EasyOCR engine (optional, better quality OCR)
-pip install easyocr
+# For screenrec
+pip install opencv-python-headless mss pynput
 
 # System dependencies (Ubuntu/Debian)
-sudo apt install tesseract-ocr poppler-utils
+sudo apt install tesseract-ocr poppler-utils xdotool wmctrl ffmpeg
 ```
 
-### For GPU-accelerated OCR (optional)
-
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-pip install easyocr
-```
+---
 
 ## pdfsplit
 
@@ -57,53 +59,18 @@ pdfsplit document.pdf
 # Extract specific pages
 pdfsplit document.pdf -p 1-10
 pdfsplit document.pdf -p 1,5,10-15
-pdfsplit document.pdf -p 56-      # From page 56 to end
-pdfsplit document.pdf -p -10       # First 10 pages
 
 # Split every N pages
 pdfsplit document.pdf -g 10
 
 # Export as PNG images
-pdfsplit document.pdf --png
-pdfsplit document.pdf -p 1-5 --png --dpi 600
+pdfsplit document.pdf --png --dpi 600
 
-# Extract embedded images
-pdfsplit document.pdf --images
-
-# Batch process directory
-pdfsplit /path/to/pdfs/
-
-# Multiple files
-pdfsplit a.pdf b.pdf c.pdf -d output
-```
-
-### Advanced Operations
-
-```bash
 # Merge PDFs
 pdfsplit --merge a.pdf b.pdf c.pdf -o combined.pdf
 
-# Reverse page order
-pdfsplit document.pdf --reverse -o reversed.pdf
-
-# Remove restrictions/unlock PDF
-pdfsplit document.pdf --unlock -o unlocked.pdf
-pdfsplit encrypted.pdf --unlock --password "secret" -o unlocked.pdf
-
-# Split at bookmark/chapter boundaries
-pdfsplit document.pdf --by-bookmark
-
-# Split by file size (great for email attachments)
-pdfsplit large.pdf --max-size 10MB
-pdfsplit large.pdf --max-size 500KB
-
 # Optimize/compress PDF
 pdfsplit document.pdf --optimize -o smaller.pdf
-pdfsplit document.pdf --optimize --quality 60 -o compressed.pdf
-
-# Combined operations
-pdfsplit document.pdf -p 1-10 --optimize -o extract_optimized.pdf
-pdfsplit --merge a.pdf b.pdf --optimize -o merged_optimized.pdf
 ```
 
 ### Options
@@ -111,26 +78,16 @@ pdfsplit --merge a.pdf b.pdf --optimize -o merged_optimized.pdf
 | Option | Description |
 |--------|-------------|
 | `-p, --pages` | Page specification (e.g., "1-10", "1,5,10-15") |
-| `-g, --granularity` | Split every N pages (default: 1) |
-| `-d, --directory` | Output directory (default: pdf_out) |
-| `-o, --output` | Output file for merge/reverse/unlock/optimize |
-| `--prefix` | Custom prefix for output filenames |
+| `-g, --granularity` | Split every N pages |
+| `-d, --directory` | Output directory |
+| `-o, --output` | Output file for merge/optimize |
 | `--png` | Export as PNG images |
-| `--dpi` | DPI for PNG export (default: 300, range: 72-2400) |
-| `--images` | Extract embedded images |
-| `--info` | Show PDF metadata and exit |
+| `--dpi` | DPI for PNG export (default: 300) |
 | `--merge` | Merge multiple PDFs |
-| `--reverse` | Reverse page order |
-| `--unlock` | Remove restrictions |
-| `--password` | Password for encrypted PDFs |
-| `--by-bookmark` | Split at bookmark boundaries |
-| `--max-size` | Split by file size limit |
 | `--optimize` | Compress/optimize output |
-| `--quality` | Image quality for optimization (1-100) |
-| `--keep-metadata` | Keep metadata during optimization |
-| `-f, --force` | Force overwrite existing files |
-| `-q, --quiet` | Suppress output |
-| `-v, --version` | Show version |
+| `--unlock` | Remove PDF restrictions |
+
+---
 
 ## pdfocr
 
@@ -145,145 +102,282 @@ pdfocr scanned.pdf
 # Use EasyOCR engine (better quality)
 pdfocr scanned.pdf -e easyocr
 
-# OCR an image
-pdfocr scan.png
-
-# Batch process directory
-pdfocr /path/to/files/
-
-# Multiple files
-pdfocr a.pdf b.png c.jpg -d output
-```
-
-### Advanced Usage
-
-```bash
-# OCR specific pages only
+# OCR specific pages
 pdfocr scanned.pdf -p 1-5
-pdfocr scanned.pdf -p 1,10,20-25
 
-# Use different language
-pdfocr document.pdf -l deu    # German
-pdfocr document.pdf -l fra    # French
-pdfocr document.pdf -l jpn    # Japanese
+# Different language
+pdfocr document.pdf -l deu  # German
 
 # JSON output with bounding boxes
 pdfocr scanned.pdf --format json
-pdfocr scanned.pdf -e easyocr --format json  # Full bounding box data
 
-# GPU acceleration (EasyOCR only)
+# GPU acceleration (EasyOCR)
 pdfocr scanned.pdf -e easyocr --gpu
-
-# Save rendered page images
-pdfocr scanned.pdf --save-images
-
-# High-quality rendering
-pdfocr scanned.pdf --dpi 600
-
-# Disable image preprocessing
-pdfocr scanned.pdf --no-enhance
 ```
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `-e, --engine` | OCR engine: tesseract (default) or easyocr |
+| `-e, --engine` | OCR engine: tesseract or easyocr |
 | `-l, --lang` | Language code (eng, deu, fra, etc.) |
-| `-d, --directory` | Output directory (default: ocr_out) |
 | `-p, --pages` | Page specification for PDFs |
 | `--dpi` | DPI for PDF rendering (default: 300) |
-| `--no-enhance` | Disable CLAHE contrast enhancement |
-| `--save-images` | Save rendered page images |
 | `--format` | Output format: text or json |
-| `--gpu` | Use GPU acceleration (EasyOCR only) |
-| `-f, --force` | Force overwrite existing files |
+| `--gpu` | Use GPU acceleration (EasyOCR) |
+
+---
+
+## stegpng
+
+Steganographic file encoder/decoder for hiding files in PNG and JPEG images.
+
+### Basic Usage
+
+```bash
+# Encode a file into a PNG
+stegpng encode secret.txt -o hidden.png
+
+# Encode with XOR obfuscation
+stegpng encode secret.txt -o hidden.png -k "mypassword"
+
+# Use metadata embedding (survives some image processors)
+stegpng encode secret.txt -o hidden.png -m metadata
+
+# Use existing image as cover
+stegpng encode secret.txt -o hidden.png -b photo.png
+
+# Decode from image
+stegpng decode hidden.png -o recovered.txt
+stegpng decode hidden.png -o recovered.txt -k "mypassword"
+
+# Check for hidden data
+stegpng info hidden.png
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `encode` | Hide a file inside an image |
+| `decode` | Extract hidden file from image |
+| `info` | Show image info and detect hidden data |
+
+### Encode Options
+
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output image file |
+| `-b, --base` | Use existing image as cover |
+| `-k, --key` | XOR key for obfuscation |
+| `-m, --method` | append (default) or metadata |
+
+### Decode Options
+
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output file for extracted data |
+| `-k, --key` | XOR key (must match encode key) |
+| `-m, --method` | Must match encode method |
+
+---
+
+## llmprep
+
+Prepare a codebase for LLM (Large Language Model) analysis. Generates
+documentation, statistics, and context files.
+
+### Basic Usage
+
+```bash
+# Analyze current directory
+llmprep .
+
+# Analyze a project
+llmprep /path/to/project
+
+# Custom output directory
+llmprep /path/to/project -o analysis
+
+# Skip heavy processing
+llmprep . --no-doxygen --no-pyreverse
+
+# Quiet mode
+llmprep . -q
+```
+
+### Output Files
+
+| File | Description |
+|------|-------------|
+| `codebase_overview.md` | Main overview (use as LLM context) |
+| `codebase_structure.txt` | Directory tree |
+| `codebase_stats.txt` | Code statistics |
+| `llm_system_prompt.md` | Suggested system prompt |
+| `project_guidance.md` | Best practices |
+| `tags` | ctags symbol index |
+| `dot_graphs_*/` | Dependency graphs |
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output directory name (default: llm_prep) |
+| `-d, --depth` | Tree depth (default: 4) |
+| `--exclude` | Exclusion pattern for tree |
+| `--no-doxygen` | Skip Doxygen |
+| `--no-pyreverse` | Skip pyreverse |
+| `--no-ctags` | Skip ctags |
 | `-q, --quiet` | Suppress output |
-| `-v, --version` | Show version |
 
-### Supported Languages
+### Optional Dependencies
 
-| Tesseract | EasyOCR | Language |
-|-----------|---------|----------|
-| eng | en | English |
-| deu | de | German |
-| fra | fr | French |
-| spa | es | Spanish |
-| ita | it | Italian |
-| por | pt | Portuguese |
-| rus | ru | Russian |
-| chi_sim | ch_sim | Chinese (Simplified) |
-| chi_tra | ch_tra | Chinese (Traditional) |
-| jpn | ja | Japanese |
-| kor | ko | Korean |
-| ara | ar | Arabic |
+- `tree` - Directory listing
+- `cloc` - Code statistics
+- `ctags` - Symbol indexing
+- `doxygen` - C/C++ documentation
+- `pyreverse` - Python UML diagrams (via pylint)
+
+---
+
+## screenrec
+
+Flexible screen and audio recorder with multiple capture modes.
+
+### Basic Usage
+
+```bash
+# Select region by drawing (default)
+screenrec
+
+# Record full screen for 60 seconds
+screenrec --fullscreen -d 60
+
+# Record with audio
+screenrec --fullscreen --audio -d 60
+
+# Record primary monitor for 2 minutes
+screenrec --monitor 1 -d 2m
+
+# Click on a window to record
+screenrec --window -d 30
+
+# Record specific region
+screenrec --region 100,100,800,600 -d 1m
+
+# With countdown and custom output
+screenrec --fullscreen --countdown 3 -o ~/Videos/capture.mp4 -d 30
+```
+
+### Capture Modes
+
+| Mode | Description |
+|------|-------------|
+| `--fullscreen` | Record entire screen (all monitors) |
+| `--monitor N` | Record monitor N (1=primary) |
+| `--window` | Click on a window to record |
+| `--window-id ID` | Record specific window ID |
+| `--select` | Draw rectangle (default) |
+| `--region X,Y,W,H` | Record specific coordinates |
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output file (default: /tmp/screenrec.mp4) |
+| `-d, --duration` | Duration: 30, 30s, 1m, 1h (default: 30) |
+| `--fps` | Frames per second (default: 30) |
+| `-a, --audio` | Record desktop audio |
+| `--audio-source` | Specific PulseAudio source |
+| `--countdown` | Countdown before recording |
+| `--list-monitors` | List available monitors |
+| `--list-windows` | List available windows |
+| `--list-audio` | List audio sources |
+| `-v, --verbose` | Show progress |
+
+### Dependencies
+
+```bash
+pip install opencv-python-headless mss pynput numpy
+sudo apt install xdotool wmctrl ffmpeg
+```
+
+---
+
+## Man Pages
+
+Man pages are provided for all tools. Install them with:
+
+```bash
+sudo cp *.1 /usr/local/share/man/man1/
+sudo mandb
+```
+
+Then access with `man pdfsplit`, `man pdfocr`, etc.
+
+---
 
 ## Examples
 
 ### Workflow: Scan → OCR → Archive
 
 ```bash
-# 1. OCR scanned documents
-pdfocr scans/*.pdf -e easyocr --gpu -d ocr_output
+# OCR scanned documents
+pdfocr scans/*.pdf -e easyocr -d ocr_output
 
-# 2. Optimize originals for storage
+# Optimize originals for storage
 for f in scans/*.pdf; do
     pdfsplit "$f" --optimize -o "archive/$(basename $f)"
 done
 ```
 
-### Workflow: Split Large Document
+### Workflow: Hide and Transfer Files
 
 ```bash
-# Split a large PDF for email attachments (max 10MB each)
-pdfsplit large_report.pdf --max-size 10MB -d email_parts
+# Hide a file in an image
+stegpng encode sensitive.pdf -o vacation.png -k "secretkey"
 
-# Or split by chapters
-pdfsplit book.pdf --by-bookmark -d chapters
+# Later, extract it
+stegpng decode vacation.png -o sensitive.pdf -k "secretkey"
 ```
 
-### Workflow: Merge and Optimize
+### Workflow: Record Tutorial
 
 ```bash
-# Merge multiple PDFs and optimize
-pdfsplit --merge scan1.pdf scan2.pdf scan3.pdf --optimize -o combined.pdf
+# Record window with audio and countdown
+screenrec --window --audio --countdown 5 -d 5m -o tutorial.mp4 -v
 ```
 
-### Workflow: Unlock and Process
+### Workflow: Analyze Codebase for AI Review
 
 ```bash
-# Remove restrictions and extract specific pages
-pdfsplit restricted.pdf --unlock -o temp.pdf -f
-pdfsplit temp.pdf -p 10-20 --optimize -o final.pdf
-rm temp.pdf
+# Generate LLM context
+llmprep /path/to/project
+
+# Copy overview to clipboard
+cat llm_prep/codebase_overview.md | xclip -selection clipboard
 ```
 
-## Legal Disclaimer
-
-The `--unlock` feature is intended for removing restrictions from documents you own or have rights to modify. Circumventing protection on copyrighted materials may violate laws in your jurisdiction.
+---
 
 ## Author
 
-- **EdgeOfAssembly**
-- Email: haxbox2000@gmail.com
+**EdgeOfAssembly**  
+Email: haxbox2000@gmail.com
 
 ## Version History
 
 ### v3.0.0 (pdfsplit)
-- Added --merge for combining PDFs
-- Added --reverse for page order reversal
-- Added --unlock for removing restrictions
-- Added --by-bookmark for chapter splitting
-- Added --max-size for size-based splitting
-- Added --optimize for PDF compression
-- Fixed duplicate file discovery on case-insensitive filesystems
-- Fixed memory issue with large PDFs
-- Added DPI validation
+- Added --merge, --reverse, --unlock, --by-bookmark, --max-size, --optimize
 
 ### v2.0.0 (pdfocr)
-- Added --pages for selective OCR
-- Added --format json for structured output
-- Added --gpu for EasyOCR acceleration
-- Fixed race condition in lazy loading
-- Fixed duplicate file discovery
-- Added DPI validation
+- Added --pages, --format json, --gpu
+
+### v1.0.0 (stegpng)
+- Initial release: PNG/JPEG support, XOR obfuscation, metadata embedding
+
+### v1.0.0 (llmprep)
+- Initial release: Directory tree, cloc, doxygen, pyreverse, ctags
+
+### v1.0.0 (screenrec)
+- Initial release: Multiple capture modes, audio recording
