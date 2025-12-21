@@ -381,3 +381,4 @@ Email: haxbox2000@gmail.com
 
 ### v1.0.0 (screenrec)
 - Initial release: Multiple capture modes, audio recording
+
