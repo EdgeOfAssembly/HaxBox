@@ -1,0 +1,269 @@
+.\" Man page for pdfocr
+.\" Contact haxbox2000@gmail.com for errors or corrections.
+.TH PDFOCR 1 "December 2025" "pdfocr 2.0.0" "User Commands"
+.SH NAME
+pdfocr \- OCR tool for extracting text from PDFs and images
+.SH SYNOPSIS
+.B pdfocr
+[\fIOPTIONS\fR] \fIFILES\fR...
+.SH DESCRIPTION
+.B pdfocr
+is a command-line tool for extracting text from scanned PDFs and images using
+Optical Character Recognition (OCR). It supports multiple OCR engines
+(tesseract and easyocr), image preprocessing for better accuracy, batch
+processing, and various output formats.
+.PP
+Input can be PDF files, image files (PNG, JPG, JPEG, TIFF, BMP, WebP), or
+directories (batch mode). When a directory is specified, all supported files
+in that directory are processed.
+.SH OPTIONS
+.SS "Basic Options"
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit.
+.TP
+.BR \-v ", " \-\-version
+Show version number and exit.
+.TP
+.BR \-f ", " \-\-force
+Force overwrite existing output files without prompting.
+.TP
+.BR \-q ", " \-\-quiet
+Suppress non-error output.
+.SS "OCR Engine"
+.TP
+.BR \-e " " \fIENGINE\fR ", " \-\-engine " " \fIENGINE\fR
+OCR engine to use. Options:
+.RS
+.IP \(bu 2
+.B tesseract
+(default) - Fast, requires tesseract-ocr binary
+.IP \(bu 2
+.B easyocr
+- Better quality, slower, pure Python
+.RE
+.TP
+.BR \-\-gpu
+Use GPU acceleration for EasyOCR. Requires CUDA and PyTorch with GPU support.
+Only effective with \fB\-e easyocr\fR.
+.SS "Language"
+.TP
+.BR \-l " " \fILANG\fR ", " \-\-lang " " \fILANG\fR
+Language code for OCR. Default: eng
+.PP
+.RS
+For tesseract: eng, deu, fra, spa, ita, por, rus, chi_sim, chi_tra, jpn, kor, ara
+.PP
+For easyocr: en, de, fr, es, it, pt, ru, ch_sim, ch_tra, ja, ko, ar
+.RE
+.SS "Page Selection"
+.TP
+.BI \-p " PAGES" "\fR, " \-\-pages " PAGES"
+Page specification for PDFs. Same format as pdfsplit:
+.RS
+.IP \(bu 2
+Individual pages: "1,7,67"
+.IP \(bu 2
+Ranges: "1-10"
+.IP \(bu 2
+Open-ended: "56-" or "-10"
+.IP \(bu 2
+Combined: "1-5,10,20-25"
+.RE
+.SS "Output"
+.TP
+.BI \-d " DIR" "\fR, " \-\-directory " DIR"
+Output directory. Default: ocr_out
+.TP
+.BI \-\-format " FORMAT"
+Output format:
+.RS
+.IP \(bu 2
+.B text
+(default) - Plain text with page separators
+.IP \(bu 2
+.B json
+- Structured JSON with metadata. When using easyocr, includes bounding boxes.
+.RE
+.SS "Image Processing"
+.TP
+.BI \-\-dpi " DPI"
+DPI for PDF rendering. Default: 300. Valid range: 72-600. Higher DPI gives
+better accuracy but slower processing.
+.TP
+.B \-\-no\-enhance
+Disable image preprocessing (CLAHE contrast enhancement). May be useful for
+already well-scanned documents.
+.TP
+.B \-\-save\-images
+Save rendered page images as PNG files alongside text output.
+.SH EXAMPLES
+.SS "Basic OCR"
+.TP
+OCR a PDF with tesseract:
+.B pdfocr scanned.pdf
+.TP
+Use EasyOCR for better quality:
+.B pdfocr scanned.pdf -e easyocr
+.TP
+OCR an image:
+.B pdfocr document.png
+.TP
+Batch process directory:
+.B pdfocr /path/to/scans/
+.SS "Language Selection"
+.TP
+German OCR:
+.B pdfocr document.pdf -l deu
+.TP
+Japanese OCR with EasyOCR:
+.B pdfocr document.pdf -e easyocr -l jpn
+.SS "Page Selection"
+.TP
+OCR only first 5 pages:
+.B pdfocr scanned.pdf -p 1-5
+.TP
+OCR specific pages:
+.B pdfocr scanned.pdf -p 1,10,20-25
+.SS "Output Formats"
+.TP
+JSON output with metadata:
+.B pdfocr scanned.pdf --format json
+.TP
+JSON with bounding boxes (EasyOCR):
+.B pdfocr scanned.pdf -e easyocr --format json
+.SS "Performance"
+.TP
+GPU-accelerated OCR:
+.B pdfocr scanned.pdf -e easyocr --gpu
+.TP
+High-quality rendering:
+.B pdfocr scanned.pdf --dpi 600
+.TP
+Save page images for review:
+.B pdfocr scanned.pdf --save-images
+.SH OUTPUT FORMAT
+.SS "Text Output"
+Text output files contain extracted text with page separators:
+.PP
+.RS
+.nf
+--- Page 1 ---
+Extracted text from page 1...
+
+--- Page 2 ---
+Extracted text from page 2...
+.fi
+.RE
+.SS "JSON Output"
+JSON output includes metadata and text content:
+.PP
+.RS
+.nf
+{
+  "source": "document.pdf",
+  "engine": "tesseract",
+  "language": "eng",
+  "pages": [
+    {"page": 1, "text": "..."},
+    {"page": 2, "text": "..."}
+  ]
+}
+.fi
+.RE
+.PP
+With EasyOCR, JSON includes bounding boxes:
+.PP
+.RS
+.nf
+{
+  "source": "document.pdf",
+  "engine": "easyocr",
+  "language": "en",
+  "pages": [
+    {
+      "page": 1,
+      "results": [
+        {
+          "text": "Hello World",
+          "confidence": 0.98,
+          "bbox": [[10,20], [100,20], [100,40], [10,40]]
+        }
+      ]
+    }
+  ]
+}
+.fi
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Error (invalid arguments, file not found, OCR engine unavailable).
+.SH FILES
+.TP
+.I ocr_out/
+Default output directory for OCR results.
+.SH DEPENDENCIES
+.SS "Required"
+.TP
+Python packages:
+pillow
+.SS "For tesseract engine"
+.TP
+Python packages:
+pytesseract
+.TP
+System packages:
+tesseract-ocr, poppler-utils (for pdf2image)
+.SS "For easyocr engine"
+.TP
+Python packages:
+easyocr, numpy, opencv-python-headless
+.SS "For GPU acceleration"
+.TP
+Python packages:
+torch, torchvision (with CUDA support)
+.SH SUPPORTED LANGUAGES
+.TS
+l l l.
+Tesseract	EasyOCR	Language
+eng	en	English
+deu	de	German
+fra	fr	French
+spa	es	Spanish
+ita	it	Italian
+por	pt	Portuguese
+nld	nl	Dutch
+pol	pl	Polish
+rus	ru	Russian
+ukr	uk	Ukrainian
+chi_sim	ch_sim	Chinese (Simplified)
+chi_tra	ch_tra	Chinese (Traditional)
+jpn	ja	Japanese
+kor	ko	Korean
+ara	ar	Arabic
+hin	hi	Hindi
+tha	th	Thai
+vie	vi	Vietnamese
+tur	tr	Turkish
+heb	he	Hebrew
+.TE
+.SH LICENSE
+This project is dual-licensed:
+.RS
+.IP \(bu 2
+GPLv3 for open-source use
+.IP \(bu 2
+Commercial license available for proprietary applications
+.RE
+.SH BUGS
+Report bugs to: haxbox2000@gmail.com
+.SH AUTHOR
+EdgeOfAssembly <haxbox2000@gmail.com>
+.SH SEE ALSO
+.BR pdfsplit (1),
+.BR tesseract (1),
+.BR ocrmypdf (1)

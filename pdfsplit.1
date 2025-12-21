@@ -1,0 +1,204 @@
+.\" Man page for pdfsplit
+.\" Contact haxbox2000@gmail.com for errors or corrections.
+.TH PDFSPLIT 1 "December 2025" "pdfsplit 3.0.0" "User Commands"
+.SH NAME
+pdfsplit \- Advanced PDF splitting, merging, and optimization tool
+.SH SYNOPSIS
+.B pdfsplit
+[\fIOPTIONS\fR] \fIFILES\fR...
+.SH DESCRIPTION
+.B pdfsplit
+is a powerful command-line tool for manipulating PDF documents. It supports
+splitting PDFs by pages, granularity, bookmarks, or file size; merging multiple
+PDFs; removing restrictions; reversing page order; exporting to PNG images;
+extracting embedded images; and optimizing/compressing PDFs.
+.PP
+Input can be individual PDF files or directories (batch mode). When a directory
+is specified, all PDF files in that directory are processed.
+.SH OPTIONS
+.SS "Basic Options"
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit.
+.TP
+.BR \-v ", " \-\-version
+Show version number and exit.
+.TP
+.BR \-f ", " \-\-force
+Force overwrite existing output files without prompting.
+.TP
+.BR \-q ", " \-\-quiet
+Suppress non-error output.
+.SS "Page Selection"
+.TP
+.BI \-p " PAGES" "\fR, " \-\-pages " PAGES"
+Page specification string. Supports multiple formats:
+.RS
+.IP \(bu 2
+Individual pages: "1,7,67"
+.IP \(bu 2
+Ranges: "1-10"
+.IP \(bu 2
+Open-ended ranges: "56-" (page 56 to end), "-10" (first 10 pages)
+.IP \(bu 2
+Combined: "1-5,10,20-25"
+.RE
+.TP
+.BI \-g " N" "\fR, " \-\-granularity " N"
+Split every N pages. Default is 1 (one output file per page).
+.SS "Output Options"
+.TP
+.BI \-d " DIR" "\fR, " \-\-directory " DIR"
+Output directory for split files. Default: pdf_out
+.TP
+.BI \-o " FILE" "\fR, " \-\-output " FILE"
+Output file path. Required for \-\-merge, \-\-reverse, \-\-unlock, and
+standalone \-\-optimize operations.
+.TP
+.BI \-\-prefix " PREFIX"
+Custom prefix for output filenames. Default uses input filename.
+.SS "Export Modes"
+.TP
+.B \-\-png
+Export pages as high-quality PNG images instead of PDF files.
+.TP
+.BI \-\-dpi " DPI"
+DPI (dots per inch) for PNG export. Default: 300. Valid range: 72-2400.
+.TP
+.B \-\-images
+Extract embedded raster images from the PDF instead of page content.
+.TP
+.B \-\-info
+Show PDF metadata (title, author, page count) and exit.
+.SS "Advanced Operations"
+.TP
+.B \-\-merge
+Merge multiple input PDFs into a single output file. Requires \-o/\-\-output.
+.TP
+.B \-\-reverse
+Reverse page order of the input PDF. Requires \-o/\-\-output.
+.TP
+.B \-\-unlock
+Remove restrictions (owner password protection) from the PDF.
+Requires \-o/\-\-output. See \fBLEGAL DISCLAIMER\fR below.
+.TP
+.BI \-\-password " PASSWORD"
+Password to decrypt user-password-protected PDFs. Used with \-\-unlock.
+.TP
+.B \-\-by\-bookmark
+Split PDF at bookmark/TOC/chapter boundaries. Creates separate files for
+each bookmarked section.
+.TP
+.BI \-\-max\-size " SIZE"
+Split PDF when output exceeds the specified size limit. Useful for email
+attachments or upload limits. Supports units: B, KB, MB, GB.
+Examples: "10MB", "500KB", "1GB".
+.SS "Optimization"
+.TP
+.B \-\-optimize
+Optimize/compress PDF to reduce file size. Applies garbage collection,
+stream compression, and optional metadata removal. Requires \-o/\-\-output
+when used alone.
+.TP
+.BI \-\-quality " Q"
+Image quality for optimization, 1-100. Default: 80. Lower values produce
+smaller files with more compression artifacts.
+.TP
+.B \-\-keep\-metadata
+Keep metadata during optimization. By default, metadata is removed.
+.SH EXAMPLES
+.SS "Basic Splitting"
+.TP
+Split all pages (one PDF per page):
+.B pdfsplit document.pdf
+.TP
+Extract pages 1-10:
+.B pdfsplit document.pdf -p 1-10
+.TP
+Extract specific pages:
+.B pdfsplit document.pdf -p 1,5,10-15
+.TP
+Split every 10 pages:
+.B pdfsplit document.pdf -g 10
+.TP
+Batch process directory:
+.B pdfsplit /path/to/pdfs/
+.SS "PNG Export"
+.TP
+Export all pages as 300 DPI PNGs:
+.B pdfsplit document.pdf --png
+.TP
+Export pages 1-5 as 600 DPI PNGs:
+.B pdfsplit document.pdf -p 1-5 --png --dpi 600
+.SS "Merging"
+.TP
+Merge multiple PDFs:
+.B pdfsplit --merge a.pdf b.pdf c.pdf -o combined.pdf
+.TP
+Merge and optimize:
+.B pdfsplit --merge *.pdf --optimize -o combined.pdf
+.SS "Advanced Operations"
+.TP
+Reverse page order:
+.B pdfsplit document.pdf --reverse -o reversed.pdf
+.TP
+Remove restrictions:
+.B pdfsplit document.pdf --unlock -o unlocked.pdf
+.TP
+Decrypt with password:
+.B pdfsplit encrypted.pdf --unlock --password "secret" -o unlocked.pdf
+.TP
+Split by bookmarks:
+.B pdfsplit book.pdf --by-bookmark
+.TP
+Split by file size (10MB limit):
+.B pdfsplit large.pdf --max-size 10MB
+.SS "Optimization"
+.TP
+Basic optimization:
+.B pdfsplit document.pdf --optimize -o smaller.pdf
+.TP
+Aggressive compression:
+.B pdfsplit document.pdf --optimize --quality 60 -o compressed.pdf
+.TP
+Extract and optimize:
+.B pdfsplit document.pdf -p 1-10 --optimize -o extract_optimized.pdf
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Error (invalid arguments, file not found, processing error).
+.SH FILES
+.TP
+.I pdf_out/
+Default output directory for split files.
+.SH DEPENDENCIES
+.TP
+.B Required:
+PyPDF2, pymupdf (fitz)
+.TP
+.B Optional:
+pillow (for image operations), tqdm (progress bars)
+.SH LEGAL DISCLAIMER
+The \fB\-\-unlock\fR feature is intended for removing restrictions from documents
+you own or have rights to modify. Circumventing protection on copyrighted
+materials may violate laws in your jurisdiction.
+.SH LICENSE
+This project is dual-licensed:
+.RS
+.IP \(bu 2
+GPLv3 for open-source use
+.IP \(bu 2
+Commercial license available for proprietary applications
+.RE
+.SH BUGS
+Report bugs to: haxbox2000@gmail.com
+.SH AUTHOR
+EdgeOfAssembly <haxbox2000@gmail.com>
+.SH SEE ALSO
+.BR pdfocr (1),
+.BR pdftk (1),
+.BR qpdf (1),
+.BR ghostscript (1)
