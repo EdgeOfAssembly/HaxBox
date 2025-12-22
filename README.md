@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/github/EdgeOfAssembly/HaxBox/graph/badge.svg?token=OQAB6V87AL)](https://codecov.io/github/EdgeOfAssembly/HaxBox)
+
 # HaxBox
 
 A collection of useful command-line tools for Linux.
@@ -362,7 +364,7 @@ cat llm_prep/codebase_overview.md | xclip -selection clipboard
 
 ## Author
 
-**EdgeOfAssembly**  
+**EdgeOfAssembly**
 Email: haxbox2000@gmail.com
 
 ## Version History
@@ -381,4 +383,3 @@ Email: haxbox2000@gmail.com
 
 ### v1.0.0 (screenrec)
 - Initial release: Multiple capture modes, audio recording
-
