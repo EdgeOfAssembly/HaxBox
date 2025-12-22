@@ -1,0 +1,13 @@
+evdev
+mss
+numpy
+opencv-python-headless
+packaging
+pdf2image
+pillow
+PyMuPDF
+pynput
+PyPDF2
+pytesseract
+python-xlib
+six
