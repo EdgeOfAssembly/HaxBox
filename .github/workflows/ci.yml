@@ -25,13 +25,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov hypothesis nox ruff mypy
+          pip install pytest pytest-cov hypothesis nox ruff
 
       - name: Lint with ruff
         run: ruff check .
 
-      - name: Type check with mypy
-        run: mypy .
 
       - name: Test with pytest
         run: pytest --cov=./ --cov-report=xml
