@@ -262,7 +262,7 @@ def encode_file(input_path: str, output_path: Optional[str], base_path: Optional
     if key:
         payload = xor_data(payload, key)
         if verbose:
-            print(f"Applied XOR obfuscation with key")
+            print("Applied XOR obfuscation with key")
     
     # Determine output format
     if output_path is None:
@@ -324,7 +324,7 @@ def decode_file(input_path: str, output_path: Optional[str], key: Optional[str],
     if key:
         payload = xor_data(payload, key)
         if verbose:
-            print(f"Applied XOR decryption with key")
+            print("Applied XOR decryption with key")
     
     # Determine output filename
     if output_path is None:

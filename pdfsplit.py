@@ -27,10 +27,9 @@ from __future__ import annotations
 
 import sys
 import argparse
-import os
 import io
 from pathlib import Path
-from typing import List, Tuple, Optional, Set, Union
+from typing import List, Tuple, Optional, Set
 
 try:
     from PyPDF2 import PdfReader, PdfWriter

@@ -447,8 +447,8 @@ Examples:
             print(f"Detected languages: {', '.join(primary_langs)}")
 
         # Determine what to run
-        has_c = sum(lang_lines.get(l, 0) for l in C_LANGUAGES) > 100
-        has_python = sum(lang_lines.get(l, 0) for l in PYTHON_LANGUAGES) > 100
+        has_c = sum(lang_lines.get(lang, 0) for lang in C_LANGUAGES) > 100
+        has_python = sum(lang_lines.get(lang, 0) for lang in PYTHON_LANGUAGES) > 100
 
         # Run optional tools
         ran_doxygen = False

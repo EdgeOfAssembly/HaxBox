@@ -435,7 +435,7 @@ def merge_audio_video(video_file: str, audio_file: str, output_file: str,
         ]
         
         if verbose:
-            print(f"Merging audio/video...", file=sys.stderr)
+            print("Merging audio/video...", file=sys.stderr)
         
         subprocess.run(cmd, check=True, capture_output=True)
         return True
