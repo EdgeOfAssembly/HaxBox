@@ -1,4 +1,0 @@
-# file: /home/runner/work/HaxBox/HaxBox/pdfsplit.py
-# hypothesis_version: 6.148.7
-
-[72.0, 100, 150, 300, 1024, 2400, ' -_', '*', '*.[pP][dD][fF]', ',', '-', '--by-bookmark', '--directory', '--dpi', '--force', '--granularity', '--images', '--info', '--keep-metadata', '--max-size', '--merge', '--optimize', '--output', '--pages', '--password', '--png', '--prefix', '--quality', '--quiet', '--reverse', '--unlock', '--version', '-d', '-f', '-g', '-o', '-p', '-q', '-v', '.pdf', '.tmp.pdf', '3.0.0', 'B', 'CMYK', 'F', 'G', 'GB', 'I', 'Invalid range format', 'K', 'KB', 'L', 'M', 'MB', 'PNG', 'RGB', 'RGBA', 'YCbCr', '_', '__main__', 'file', 'image', 'inputs', 'multiple hyphens', 'page', 'pdf_out', 'pdfsplit', 'store_true', 'title', 'version', 'wb', 'y']

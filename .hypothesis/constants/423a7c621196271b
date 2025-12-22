@@ -1,4 +1,0 @@
-# file: /home/runner/work/HaxBox/HaxBox/pdfocr.py
-# hypothesis_version: 6.148.7
-
-[2.0, 300, 600, '*', '*.', '*.[pP][dD][fF]', ',', '-', '--directory', '--dpi', '--engine', '--force', '--format', '--gpu', '--lang', '--no-enhance', '--pages', '--quiet', '--save-images', '--version', '-d', '-e', '-f', '-l', '-p', '-q', '-v', '.bmp', '.jpeg', '.jpg', '.json', '.pdf', '.png', '.tif', '.tiff', '.txt', '.webp', '2.0.0', 'Invalid range format', 'PNG', 'Pages', '__main__', 'ar', 'ara', 'bbox', 'ch_sim', 'ch_tra', 'chi_sim', 'chi_tra', 'confidence', 'de', 'deu', 'easyocr', 'en', 'eng', 'engine', 'error', 'es', 'fr', 'fra', 'he', 'heb', 'hi', 'hin', 'inputs', 'it', 'ita', 'ja', 'jpn', 'json', 'ko', 'kor', 'language', 'multiple hyphens', 'nl', 'nld', 'ocr_out', 'page', 'pages', 'pdfocr', 'pl', 'pol', 'por', 'pt', 'results', 'ru', 'rus', 'source', 'spa', 'store_true', 'tesseract', 'text', 'th', 'tha', 'tr', 'tur', 'uk', 'ukr', 'utf-8', 'version', 'vi', 'vie', 'w', 'y']

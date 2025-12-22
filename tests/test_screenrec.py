@@ -505,3 +505,74 @@ class TestPropertyBased:
         """Property: hours convert to seconds correctly."""
         result = screenrec.parse_duration(f"{hours}h")
         assert result == float(hours * 3600)
+
+
+# Skip these tests if no DISPLAY is available
+@pytest.mark.skipif(
+    not bool(__import__("os").environ.get("DISPLAY")),
+    reason="No X11 display available"
+)
+class TestX11Functions:
+    """Tests that require an X11 display (use xvfb for CI)."""
+
+    def test_get_primary_monitor(self):
+        """Get primary monitor returns valid region."""
+        # This requires mss to be available and working
+        if not screenrec.check_dependencies(need_x11=False):
+            pytest.skip("Dependencies not available")
+
+        region = screenrec.get_primary_monitor()
+        assert isinstance(region, dict)
+        assert "left" in region
+        assert "top" in region
+        assert "width" in region
+        assert "height" in region
+        assert region["width"] > 0
+        assert region["height"] > 0
+
+    def test_get_full_screen(self):
+        """Get full screen returns valid region."""
+        if not screenrec.check_dependencies(need_x11=False):
+            pytest.skip("Dependencies not available")
+
+        region = screenrec.get_full_screen()
+        assert isinstance(region, dict)
+        assert region["width"] > 0
+        assert region["height"] > 0
+
+    def test_get_all_monitors(self):
+        """Get all monitors returns list of regions."""
+        if not screenrec.check_dependencies(need_x11=False):
+            pytest.skip("Dependencies not available")
+
+        monitors = screenrec.get_all_monitors()
+        assert isinstance(monitors, list)
+        assert len(monitors) >= 1
+        for m in monitors:
+            assert "width" in m
+            assert "height" in m
+            assert m["width"] > 0
+            assert m["height"] > 0
+
+    def test_record_region_short(self, tmp_path: Path):
+        """Record a very short clip to test recording functionality."""
+        if not screenrec.check_dependencies(need_x11=False):
+            pytest.skip("Dependencies not available")
+
+        output = tmp_path / "test_recording.mp4"
+        region = {"left": 0, "top": 0, "width": 100, "height": 100}
+
+        # Record for just 0.5 seconds at low fps
+        result = screenrec.record_region(
+            region=region,
+            output=str(output),
+            duration=0.5,
+            fps=10,
+            audio=False,
+            audio_source=None,
+            verbose=False,
+        )
+
+        assert result is True
+        assert output.exists()
+        assert output.stat().st_size > 0

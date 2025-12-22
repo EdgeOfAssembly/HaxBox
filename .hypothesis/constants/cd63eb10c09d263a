@@ -1,4 +1,0 @@
-# file: /home/runner/work/HaxBox/HaxBox/stegpng.py
-# hypothesis_version: 6.148.7
-
-[b'\x00', b'\x00\x00', b'\x00\x00\x00\x00\x00', b'\x10', b'IDAT', b'IEND', b'IHDR', b'STEGPNG', b'zTXt', b'\x89PNG\r\n\x1a\n', b'\xff\xd8', b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00', b'\xff\xd9', b'\xff\xfe', 208, 209, 210, 211, 212, 213, 214, 215, 217, 254, 255, 65530, 4294967295, '--base', '--key', '--method', '--output', '--verbose', '--version', '-b', '-k', '-m', '-o', '-v', '.jpeg', '.jpg', '.png', '1.0.0', '>H', '>I', '>IIBBBBB', 'Command to run', 'Input file to encode', 'Input image file', 'Verbose output', '__main__', 'append', 'command', 'decode', 'encode', 'info', 'input', 'jpeg', 'metadata', 'png', 'rb', 'store_true', 'utf-8', 'version', 'wb']
