@@ -34,13 +34,16 @@ import argparse
 import json
 import threading
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any, FrozenSet, Union, Iterator, Iterable
+from typing import List, Optional, Tuple, Dict, Any, FrozenSet, Union, Iterator, Iterable, TypeVar
 
 try:
     from PIL import Image
 except ImportError:
     print("Error: Pillow is not installed. Install with: pip install pillow")
     sys.exit(1)
+
+# TypeVar for tqdm fallback
+_T = TypeVar("_T")
 
 try:
     from tqdm import tqdm
@@ -49,9 +52,9 @@ except ImportError:
     _HAS_TQDM = False
 
     def tqdm(  # type: ignore[no-redef]
-        iterable: Iterable[Any], *args: Any, **kwargs: Any
-    ) -> Iterable[Any]:
-        """Fallback tqdm that does nothing."""
+        iterable: Iterable[_T], *args: Any, **kwargs: Any
+    ) -> Iterable[_T]:
+        """Fallback tqdm that passes through the iterable unchanged."""
         return iterable
 
 

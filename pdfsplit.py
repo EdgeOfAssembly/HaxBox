@@ -30,7 +30,7 @@ import argparse
 import io
 from pathlib import Path
 from types import ModuleType
-from typing import List, Tuple, Optional, Set, Any, Iterable, Union
+from typing import List, Tuple, Optional, Set, Any, Iterable, Union, TypeVar
 
 try:
     from PyPDF2 import PdfReader, PdfWriter
@@ -54,6 +54,9 @@ try:
 except ImportError:
     Image = None
 
+# TypeVar for tqdm fallback
+_T = TypeVar("_T")
+
 try:
     from tqdm import tqdm
     _HAS_TQDM = True
@@ -61,9 +64,9 @@ except ImportError:
     _HAS_TQDM = False
 
     def tqdm(  # type: ignore[no-redef]
-        iterable: Iterable[Any], *args: Any, **kwargs: Any
-    ) -> Iterable[Any]:
-        """Fallback tqdm that does nothing."""
+        iterable: Iterable[_T], *args: Any, **kwargs: Any
+    ) -> Iterable[_T]:
+        """Fallback tqdm that passes through the iterable unchanged."""
         return iterable
 
 

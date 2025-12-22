@@ -416,7 +416,7 @@ Tips:
 def start_audio_recording(
     output_file: str, duration: float,
     audio_source: Optional[str], verbose: bool
-) -> Optional["subprocess.Popen[bytes]"]:
+) -> Optional[subprocess.Popen[bytes]]:
     """Start audio recording in background.
 
     Args:
@@ -458,7 +458,7 @@ def start_audio_recording(
         if verbose:
             print(f"Starting audio: {' '.join(cmd)}", file=sys.stderr)
         
-        proc: "subprocess.Popen[bytes]" = subprocess.Popen(
+        proc: subprocess.Popen[bytes] = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
@@ -470,7 +470,7 @@ def start_audio_recording(
         return None
 
 
-def stop_audio_recording(proc: Optional["subprocess.Popen[bytes]"]) -> None:
+def stop_audio_recording(proc: Optional[subprocess.Popen[bytes]]) -> None:
     """Stop audio recording process.
 
     Args:
@@ -583,7 +583,7 @@ def record_region(region: Dict[str, int], output: str, duration: float,
         return False
 
     # Start audio recording
-    audio_proc: Optional["subprocess.Popen[bytes]"] = None
+    audio_proc: Optional[subprocess.Popen[bytes]] = None
     if audio and temp_audio is not None:
         audio_proc = start_audio_recording(temp_audio, duration, audio_source, verbose)
 
