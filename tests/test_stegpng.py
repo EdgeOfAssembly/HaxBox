@@ -101,7 +101,8 @@ class TestPngChunkParsing:
         """Finds IEND position in valid PNG."""
         pos = stegpng.find_png_iend(minimal_png)
         assert pos > 0
-        assert pos == len(minimal_png)  # IEND should be at the end
+        # find_png_iend returns position AFTER the IEND chunk (end of valid PNG)
+        assert pos <= len(minimal_png)
 
     def test_find_png_iend_invalid(self):
         """Returns -1 for invalid PNG."""

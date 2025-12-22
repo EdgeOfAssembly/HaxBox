@@ -214,11 +214,11 @@ class TestProcessInputs:
 
     def test_directory_with_pdfs(self, tmp_path: Path, minimal_pdf: Path):
         """Processes directory containing PDFs."""
-        # Create multiple PDFs
-        pdf1 = tmp_path / "doc1.pdf"
-        pdf2 = tmp_path / "doc2.PDF"  # Case variation
-        pdf1.write_bytes(minimal_pdf.read_bytes())
-        pdf2.write_bytes(minimal_pdf.read_bytes())
+        # Create multiple PDFs with different case extensions
+        pdf_lowercase = tmp_path / "doc1.pdf"
+        pdf_uppercase = tmp_path / "doc2.PDF"  # Test case-insensitive handling
+        pdf_lowercase.write_bytes(minimal_pdf.read_bytes())
+        pdf_uppercase.write_bytes(minimal_pdf.read_bytes())
 
         result = pdfsplit.process_inputs([str(tmp_path)])
         assert len(result) >= 1

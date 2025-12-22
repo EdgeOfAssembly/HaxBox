@@ -478,14 +478,14 @@ class TestOcrPdf:
         existing.write_text("existing content")
 
         with patch.object(pdfocr, "pdf_to_images", return_value=[]):
-            result = pdfocr.ocr_pdf(
+            pdfocr.ocr_pdf(
                 minimal_pdf,
                 output_dir,
                 force=True,
                 quiet=True,
             )
-            # Empty PDF will create empty output
-            assert result is not None or result is None  # May fail on conversion
+            # Result may be None (conversion failed) or a Path (success)
+            # We just verify the function doesn't raise an unexpected exception
 
 
 class TestOcrImageFile:
