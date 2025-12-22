@@ -29,7 +29,8 @@ import sys
 import argparse
 import io
 from pathlib import Path
-from typing import List, Tuple, Optional, Set
+from types import ModuleType
+from typing import List, Tuple, Optional, Set, Any, Iterable, Union
 
 try:
     from PyPDF2 import PdfReader, PdfWriter
@@ -37,20 +38,33 @@ except ImportError:
     print("Error: PyPDF2 is not installed. Install with: pip install PyPDF2")
     sys.exit(1)
 
+# Optional imports - declare types before conditional import
+fitz: Optional[ModuleType]
 try:
-    import fitz  # pymupdf - for PNG export and image extraction
+    import fitz as _fitz  # pymupdf - for PNG export and image extraction
+    fitz = _fitz
 except ImportError:
     fitz = None
 
+# PIL Image import
+Image: Any
 try:
-    from PIL import Image
+    from PIL import Image as _Image
+    Image = _Image
 except ImportError:
     Image = None
 
 try:
     from tqdm import tqdm
+    _HAS_TQDM = True
 except ImportError:
-    tqdm = None
+    _HAS_TQDM = False
+
+    def tqdm(  # type: ignore[no-redef]
+        iterable: Iterable[Any], *args: Any, **kwargs: Any
+    ) -> Iterable[Any]:
+        """Fallback tqdm that does nothing."""
+        return iterable
 
 
 __version__ = "3.0.0"
@@ -193,7 +207,8 @@ def extract_pdf_pages(
     stem = prefix if prefix else input_path.stem
     files_created = 0
 
-    if not quiet and tqdm:
+    ranges_iter: Iterable[Tuple[int, int]]
+    if not quiet and _HAS_TQDM:
         ranges_iter = tqdm(ranges, desc=f"Splitting {input_path.name}", unit="file")
     else:
         ranges_iter = ranges
@@ -294,7 +309,8 @@ def extract_pages_as_png(
 
     pages_list = sorted(pages_to_extract)
 
-    if not quiet and tqdm:
+    pages_iter: Iterable[int]
+    if not quiet and _HAS_TQDM:
         pages_iter = tqdm(
             pages_list, desc=f"Exporting PNG from {input_path.name}", unit="page"
         )
@@ -392,7 +408,8 @@ def extract_embedded_images(
                 pages_set.add(p)
         pages_to_process = sorted(pages_set)
 
-    if not quiet and tqdm:
+    pages_iter: Iterable[int]
+    if not quiet and _HAS_TQDM:
         pages_iter = tqdm(
             pages_to_process,
             desc=f"Extracting images from {input_path.name}",
@@ -811,7 +828,7 @@ def split_by_bookmarks(
     # Extract bookmark page numbers
     bookmark_pages: List[Tuple[int, str]] = []
 
-    def extract_bookmark_pages(outline_items, depth=0):
+    def extract_bookmark_pages(outline_items: Any, depth: int = 0) -> None:
         """Recursively extract bookmark page numbers and titles."""
         for item in outline_items:
             if isinstance(item, list):

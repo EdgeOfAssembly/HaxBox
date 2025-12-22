@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-screenrec - Flexible screen and audio recorder
+"""screenrec - Flexible screen and audio recorder.
 
 Record screen to video with multiple capture modes (like gnome-screenshot):
 - Full screen capture (like PrtScn)
@@ -13,6 +12,8 @@ Email: haxbox2000@gmail.com
 License: GPLv3 / Commercial
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import re
@@ -22,41 +23,48 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Callable
 
 __version__ = "1.0.0"
 
-# Lazy imports for optional dependencies
-cv2 = None
-np = None
-mss_module = None
-pynput_mouse = None
+# Lazy imports for optional dependencies - typed as Any since they're optional
+cv2: Optional[Any] = None
+np: Optional[Any] = None
+mss_module: Optional[Callable[..., Any]] = None
+pynput_mouse: Optional[Any] = None
 
 
 def check_dependencies(need_x11: bool = True) -> bool:
-    """Check and import required dependencies."""
+    """Check and import required dependencies.
+
+    Args:
+        need_x11: Whether X11 dependencies (pynput) are needed.
+
+    Returns:
+        True if all required dependencies are available, False otherwise.
+    """
     global cv2, np, mss_module, pynput_mouse
-    
-    missing = []
-    
+
+    missing: List[str] = []
+
     try:
         import cv2 as _cv2
         cv2 = _cv2
     except ImportError:
         missing.append("opencv-python-headless")
-    
+
     try:
         import numpy as _np
         np = _np
     except ImportError:
         missing.append("numpy")
-    
+
     try:
         from mss import mss as _mss
         mss_module = _mss
     except ImportError:
         missing.append("mss")
-    
+
     if need_x11:
         try:
             from pynput import mouse as _mouse
@@ -68,12 +76,12 @@ def check_dependencies(need_x11: bool = True) -> bool:
                 print("Set DISPLAY environment variable or run in a desktop session.", file=sys.stderr)
                 sys.exit(1)
             missing.append("pynput")
-    
+
     if missing:
         print(f"Error: Missing dependencies: {', '.join(missing)}", file=sys.stderr)
         print(f"Install with: pip install {' '.join(missing)}", file=sys.stderr)
         return False
-    
+
     return True
 
 
@@ -153,12 +161,21 @@ def parse_duration(s: str) -> float:
     
     if total > 0:
         return total
-    
+
     raise ValueError(f"Invalid duration format: {s}")
 
 
 def get_primary_monitor() -> Dict[str, int]:
-    """Get primary monitor region."""
+    """Get primary monitor region.
+
+    Returns:
+        Dictionary with keys 'left', 'top', 'width', 'height' for the primary monitor.
+
+    Raises:
+        RuntimeError: If mss is not available.
+    """
+    if mss_module is None:
+        raise RuntimeError("mss module not available")
     with mss_module() as sct:
         if len(sct.monitors) > 1:
             return dict(sct.monitors[1])
@@ -166,13 +183,31 @@ def get_primary_monitor() -> Dict[str, int]:
 
 
 def get_full_screen() -> Dict[str, int]:
-    """Get full virtual screen (all monitors combined)."""
+    """Get full virtual screen (all monitors combined).
+
+    Returns:
+        Dictionary with keys 'left', 'top', 'width', 'height' for the full screen.
+
+    Raises:
+        RuntimeError: If mss is not available.
+    """
+    if mss_module is None:
+        raise RuntimeError("mss module not available")
     with mss_module() as sct:
         return dict(sct.monitors[0])
 
 
 def get_all_monitors() -> List[Dict[str, int]]:
-    """Get all monitor regions."""
+    """Get all monitor regions.
+
+    Returns:
+        List of dictionaries with monitor geometry information.
+
+    Raises:
+        RuntimeError: If mss is not available.
+    """
+    if mss_module is None:
+        raise RuntimeError("mss module not available")
     with mss_module() as sct:
         return [dict(m) for m in sct.monitors[1:]]
 
@@ -223,14 +258,18 @@ def select_window_by_click(verbose: bool = False) -> Optional[Dict[str, int]]:
 
 
 def list_windows() -> List[Tuple[str, str]]:
-    """List all visible windows."""
+    """List all visible windows.
+
+    Returns:
+        List of tuples (window_id, window_title) for visible windows.
+    """
     try:
         result = subprocess.run(
             ["wmctrl", "-l"],
             capture_output=True, text=True, check=True
         )
-        
-        windows = []
+
+        windows: List[Tuple[str, str]] = []
         for line in result.stdout.strip().split("\n"):
             if line:
                 parts = line.split(None, 3)
@@ -242,21 +281,34 @@ def list_windows() -> List[Tuple[str, str]]:
 
 
 # Global state for rectangle selection
-_rect_selection = {"start_x": 0, "start_y": 0, "end_x": 0, "end_y": 0}
+_rect_selection: Dict[str, int] = {"start_x": 0, "start_y": 0, "end_x": 0, "end_y": 0}
 
 
 def select_rectangle(verbose: bool = False) -> Optional[Dict[str, int]]:
-    """Let user draw a rectangle to select region."""
+    """Let user draw a rectangle to select region.
+
+    Args:
+        verbose: Whether to print progress messages.
+
+    Returns:
+        Dictionary with 'left', 'top', 'width', 'height' keys, or None if selection failed.
+
+    Raises:
+        RuntimeError: If pynput is not available.
+    """
     global _rect_selection
     _rect_selection = {"start_x": 0, "start_y": 0, "end_x": 0, "end_y": 0}
-    
+
+    if pynput_mouse is None:
+        raise RuntimeError("pynput module not available")
+
     if verbose:
         print("Click and drag to select recording region...", file=sys.stderr)
-    
-    def on_click(x, y, button, pressed):
+
+    def on_click(x: int, y: int, button: Any, pressed: bool) -> Optional[bool]:
         if button != pynput_mouse.Button.left:
             return None
-        
+
         if pressed:
             _rect_selection["start_x"] = x
             _rect_selection["start_y"] = y
@@ -269,7 +321,7 @@ def select_rectangle(verbose: bool = False) -> Optional[Dict[str, int]]:
                 print(f"  End: ({x}, {y})", file=sys.stderr)
             return False
         return None
-    
+
     with pynput_mouse.Listener(on_click=on_click) as listener:
         listener.join()
     
@@ -361,18 +413,31 @@ Tips:
 """.format(script=script_path))
 
 
-def start_audio_recording(output_file: str, duration: float, 
-                          audio_source: Optional[str], verbose: bool) -> Optional[subprocess.Popen]:
-    """Start audio recording in background."""
+def start_audio_recording(
+    output_file: str, duration: float,
+    audio_source: Optional[str], verbose: bool
+) -> Optional["subprocess.Popen[bytes]"]:
+    """Start audio recording in background.
+
+    Args:
+        output_file: Path to save the audio file.
+        duration: Recording duration in seconds.
+        audio_source: Optional PulseAudio source name.
+        verbose: Whether to print progress messages.
+
+    Returns:
+        Subprocess Popen object if successful, None otherwise.
+    """
     audio_available, tool = check_audio_tools()
     if not audio_available:
         if verbose:
             print("Warning: No audio recording tools found", file=sys.stderr)
         return None
-    
+
     source = audio_source or get_pulse_default_source()
-    
+
     try:
+        cmd: List[str]
         if tool == "pulseaudio" and source:
             cmd = [
                 "parecord", "--file-format=wav",
@@ -389,11 +454,11 @@ def start_audio_recording(output_file: str, duration: float,
             ]
         else:
             cmd = ["arecord", "-f", "cd", "-t", "wav", output_file]
-        
+
         if verbose:
             print(f"Starting audio: {' '.join(cmd)}", file=sys.stderr)
         
-        proc = subprocess.Popen(
+        proc: "subprocess.Popen[bytes]" = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
@@ -405,8 +470,12 @@ def start_audio_recording(output_file: str, duration: float,
         return None
 
 
-def stop_audio_recording(proc: subprocess.Popen) -> None:
-    """Stop audio recording process."""
+def stop_audio_recording(proc: Optional["subprocess.Popen[bytes]"]) -> None:
+    """Stop audio recording process.
+
+    Args:
+        proc: Subprocess Popen object to stop.
+    """
     if proc:
         proc.send_signal(signal.SIGINT)
         try:
@@ -417,7 +486,17 @@ def stop_audio_recording(proc: subprocess.Popen) -> None:
 
 def merge_audio_video(video_file: str, audio_file: str, output_file: str,
                       verbose: bool = False) -> bool:
-    """Merge audio and video files using ffmpeg."""
+    """Merge audio and video files using ffmpeg.
+
+    Args:
+        video_file: Path to video file.
+        audio_file: Path to audio file.
+        output_file: Path for merged output file.
+        verbose: Whether to print progress messages.
+
+    Returns:
+        True if merge succeeded, False otherwise.
+    """
     if not shutil.which("ffmpeg"):
         if verbose:
             print("Warning: ffmpeg not found, cannot merge audio", file=sys.stderr)
@@ -448,53 +527,70 @@ def merge_audio_video(video_file: str, audio_file: str, output_file: str,
 def record_region(region: Dict[str, int], output: str, duration: float,
                   fps: float, audio: bool, audio_source: Optional[str],
                   verbose: bool = False) -> bool:
-    """Record screen region to video file, optionally with audio."""
+    """Record screen region to video file, optionally with audio.
+
+    Args:
+        region: Dictionary with 'left', 'top', 'width', 'height' keys.
+        output: Path for output video file.
+        duration: Recording duration in seconds.
+        fps: Frames per second.
+        audio: Whether to record audio.
+        audio_source: Optional PulseAudio source name.
+        verbose: Whether to print progress messages.
+
+    Returns:
+        True if recording succeeded, False otherwise.
+    """
+    if cv2 is None or np is None or mss_module is None:
+        print("Error: Required dependencies not available", file=sys.stderr)
+        return False
+
     width = max(1, region["width"])
     height = max(1, region["height"])
-    
+
     # Ensure even dimensions for video encoding
     width = width - (width % 2)
     height = height - (height % 2)
     region["width"] = width
     region["height"] = height
-    
+
     if verbose:
         print(f"Recording: {width}x{height} at ({region['left']}, {region['top']})",
               file=sys.stderr)
         print(f"Duration: {duration}s, FPS: {fps}, Audio: {audio}", file=sys.stderr)
-    
+
     # Setup output paths
     output_dir = os.path.dirname(output)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    
+
     # If audio, use temp files for separate recording
-    temp_video = None
-    temp_audio = None
+    temp_video: Optional[str] = None
+    temp_audio: Optional[str] = None
     if audio:
         temp_video = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False).name
         temp_audio = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
         video_output = temp_video
     else:
         video_output = output
-    
+
     # Setup video writer
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(video_output, fourcc, fps, (width, height))
-    
+
     if not writer.isOpened():
         print(f"Error: Could not create video file: {video_output}", file=sys.stderr)
         return False
-    
+
     # Start audio recording
-    audio_proc = None
-    if audio:
+    audio_proc: Optional["subprocess.Popen[bytes]"] = None
+    if audio and temp_audio is not None:
         audio_proc = start_audio_recording(temp_audio, duration, audio_source, verbose)
-    
+
     frame_interval = 1.0 / fps
     frames_recorded = 0
     start_time = time.time()
-    
+
     try:
         with mss_module() as sct:
             while True:
