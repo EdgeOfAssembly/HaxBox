@@ -34,7 +34,7 @@ import argparse
 import json
 import threading
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any, FrozenSet, Union, Iterator, Iterable, TypeVar
+from typing import List, Optional, Tuple, Dict, Any, FrozenSet, Iterable, TypeVar
 
 try:
     from PIL import Image

@@ -30,7 +30,7 @@ import argparse
 import io
 from pathlib import Path
 from types import ModuleType
-from typing import List, Tuple, Optional, Set, Any, Iterable, Union, TypeVar
+from typing import List, Tuple, Optional, Set, Any, Iterable, TypeVar
 
 try:
     from PyPDF2 import PdfReader, PdfWriter
