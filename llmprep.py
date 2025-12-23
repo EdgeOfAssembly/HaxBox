@@ -52,8 +52,15 @@ def check_tool(name: str) -> bool:
 
 
 def parse_cloc_output(stats_file: Path) -> Dict[str, int]:
-    """Parse cloc output to get lines of code per language."""
-    lang_code_lines = {}
+    """Parse cloc output to get lines of code per language.
+
+    Args:
+        stats_file: Path to the cloc output file.
+
+    Returns:
+        Dictionary mapping language names to lines of code.
+    """
+    lang_code_lines: Dict[str, int] = {}
     if not stats_file.exists() or stats_file.stat().st_size == 0:
         return lang_code_lines
 

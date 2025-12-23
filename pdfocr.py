@@ -34,7 +34,7 @@ import argparse
 import json
 import threading
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any, FrozenSet, Iterable, TypeVar
 
 try:
     from PIL import Image
@@ -42,25 +42,40 @@ except ImportError:
     print("Error: Pillow is not installed. Install with: pip install pillow")
     sys.exit(1)
 
+# TypeVar for tqdm fallback
+_T = TypeVar("_T")
+
 try:
     from tqdm import tqdm
+    _HAS_TQDM = True
 except ImportError:
-    tqdm = None
+    _HAS_TQDM = False
+
+    def tqdm(  # type: ignore[no-redef]
+        iterable: Iterable[_T], *args: Any, **kwargs: Any
+    ) -> Iterable[_T]:
+        """Fallback tqdm that passes through the iterable unchanged."""
+        return iterable
+
 
 # OCR engines - lazily imported with thread safety
-_pytesseract = None
-_easyocr_reader = None
-_easyocr_reader_langs: Optional[set] = None
-_cv2 = None
-_np = None
+_pytesseract: Any = None
+_easyocr_reader: Any = None
+_easyocr_reader_langs: Optional[FrozenSet[str]] = None
+_cv2: Any = None
+_np: Any = None
 _easyocr_lock = threading.Lock()
 _pytesseract_lock = threading.Lock()
 _cv2_lock = threading.Lock()
 _numpy_lock = threading.Lock()
 
 
-def _get_numpy():
-    """Lazy import numpy (thread-safe)."""
+def _get_numpy() -> Any:
+    """Lazy import numpy (thread-safe).
+
+    Returns:
+        The numpy module if available, otherwise None.
+    """
     global _np
     if _np is None:
         with _numpy_lock:
@@ -107,8 +122,12 @@ TESSERACT_TO_EASYOCR_LANG = {
 }
 
 
-def _get_pytesseract():
-    """Lazy import pytesseract (thread-safe)."""
+def _get_pytesseract() -> Any:
+    """Lazy import pytesseract (thread-safe).
+
+    Returns:
+        The pytesseract module if available, otherwise None.
+    """
     global _pytesseract
     if _pytesseract is None:
         with _pytesseract_lock:
@@ -123,9 +142,10 @@ def _get_pytesseract():
     return _pytesseract
 
 
-def _get_easyocr_reader(langs: List[str] = None, gpu: bool = False):
-    """
-    Lazy import and initialize easyocr reader (thread-safe).
+def _get_easyocr_reader(
+    langs: Optional[List[str]] = None, gpu: bool = False
+) -> Any:
+    """Lazy import and initialize easyocr reader (thread-safe).
 
     Note: Creates a new reader if languages differ from the cached one.
 
@@ -140,7 +160,7 @@ def _get_easyocr_reader(langs: List[str] = None, gpu: bool = False):
     if langs is None:
         langs = ["en"]
 
-    requested_langs = frozenset(langs)
+    requested_langs: FrozenSet[str] = frozenset(langs)
 
     with _easyocr_lock:
         # Check if we need to reinitialize with different languages
@@ -159,8 +179,12 @@ def _get_easyocr_reader(langs: List[str] = None, gpu: bool = False):
     return _easyocr_reader
 
 
-def _get_cv2():
-    """Lazy import OpenCV (thread-safe)."""
+def _get_cv2() -> Any:
+    """Lazy import OpenCV (thread-safe).
+
+    Returns:
+        The cv2 (OpenCV) module if available, otherwise None.
+    """
     global _cv2, _np
     if _cv2 is None:
         with _cv2_lock:
@@ -231,8 +255,7 @@ def preprocess_image_for_ocr(image: Image.Image, enhance: bool = True) -> Image.
 
 
 def ocr_with_tesseract(image: Image.Image, lang: str = "eng") -> str:
-    """
-    Perform OCR using Tesseract.
+    """Perform OCR using Tesseract.
 
     Args:
         image: PIL Image to OCR.
@@ -245,12 +268,13 @@ def ocr_with_tesseract(image: Image.Image, lang: str = "eng") -> str:
     if pytesseract is None:
         raise ImportError("pytesseract not installed. Install: pip install pytesseract")
 
-    return pytesseract.image_to_string(image, lang=lang)
+    result: str = pytesseract.image_to_string(image, lang=lang)
+    return result
 
 
 def ocr_with_easyocr(
     image: Image.Image,
-    langs: List[str] = None,
+    langs: Optional[List[str]] = None,
     gpu: bool = False,
     return_boxes: bool = False,
 ) -> Any:
@@ -521,7 +545,8 @@ def ocr_pdf(
     else:
         all_text: List[str] = []
 
-    if not quiet and tqdm:
+    pages_iter: Iterable[Tuple[int, Image.Image]]
+    if not quiet and _HAS_TQDM:
         pages_iter = tqdm(page_images, desc=f"OCR {pdf_path.name}", unit="page")
     else:
         pages_iter = page_images
