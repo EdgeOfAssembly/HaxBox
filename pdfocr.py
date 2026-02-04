@@ -50,6 +50,7 @@ _T = TypeVar("_T")
 
 try:
     from tqdm import tqdm
+
     _HAS_TQDM = True
 except ImportError:
     _HAS_TQDM = False
@@ -172,9 +173,7 @@ def _get_pytesseract() -> Any:
     return _pytesseract
 
 
-def _get_easyocr_reader(
-    langs: Optional[List[str]] = None, gpu: bool = False
-) -> Any:
+def _get_easyocr_reader(langs: Optional[List[str]] = None, gpu: bool = False) -> Any:
     """Lazy import and initialize easyocr reader (thread-safe).
 
     Note: Creates a new reader if languages differ from the cached one.

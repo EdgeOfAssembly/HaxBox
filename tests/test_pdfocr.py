@@ -125,7 +125,9 @@ class TestProcessInputs:
         result = pdfocr.process_inputs([str(tmp_path)])
         assert len(result) >= len(extensions)
 
-    def test_directory_batch(self, tmp_path: Path, minimal_pdf: Path, minimal_png: bytes):
+    def test_directory_batch(
+        self, tmp_path: Path, minimal_pdf: Path, minimal_png: bytes
+    ):
         """Processes directory in batch mode."""
         # Create multiple files
         (tmp_path / "doc.pdf").write_bytes(minimal_pdf.read_bytes())
@@ -277,6 +279,7 @@ class TestCheckEngineAvailable:
 
     def test_easyocr_not_available(self):
         """Returns False when easyocr not available."""
+
         # Mock import failure
         def mock_import(*args, **kwargs):
             raise ImportError("No module named 'easyocr'")
@@ -287,6 +290,7 @@ class TestCheckEngineAvailable:
 
     def test_paddleocr_not_available(self):
         """Returns False when paddleocr not available."""
+
         # Mock import failure
         def mock_import(*args, **kwargs):
             raise ImportError("No module named 'paddleocr'")
@@ -297,6 +301,7 @@ class TestCheckEngineAvailable:
 
     def test_doctr_not_available(self):
         """Returns False when doctr not available."""
+
         # Mock import failure
         def mock_import(*args, **kwargs):
             raise ImportError("No module named 'doctr'")
@@ -454,16 +459,16 @@ class TestCLI:
 
     def test_cli_dpi_validation(self, capsys):
         """CLI validates DPI value."""
-        with patch.object(
-            sys, "argv", ["pdfocr", "test.pdf", "--dpi", "0"]
-        ):
+        with patch.object(sys, "argv", ["pdfocr", "test.pdf", "--dpi", "0"]):
             with pytest.raises(SystemExit) as exc_info:
                 pdfocr.main()
             assert exc_info.value.code == 1
         captured = capsys.readouterr()
         assert "must be positive" in captured.err
 
-    def test_cli_gpu_warning_with_tesseract(self, capsys, sample_png_path: Path, tmp_path: Path):
+    def test_cli_gpu_warning_with_tesseract(
+        self, capsys, sample_png_path: Path, tmp_path: Path
+    ):
         """CLI warns about --gpu with tesseract."""
         with patch.object(
             sys,
