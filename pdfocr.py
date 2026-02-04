@@ -4,7 +4,8 @@ pdfocr - OCR tool for extracting text from PDFs and images.
 
 Features:
 - Extract text from scanned PDFs and images using OCR
-- Support multiple OCR engines: tesseract (fast, default), easyocr (higher accuracy)
+- Support multiple OCR engines: tesseract (fast, default), easyocr (higher accuracy),
+  paddleocr (state-of-the-art), doctr (document-focused)
 - Multiple input files and batch directory processing
 - Image preprocessing for better OCR accuracy
 - Page selection for OCR (e.g., only first 5 pages)
@@ -21,6 +22,8 @@ Dependencies:
 - pytesseract (default engine): pip install pytesseract
   Also requires tesseract binary: apt install tesseract-ocr (Ubuntu)
 - easyocr (higher accuracy engine): pip install easyocr
+- paddleocr (state-of-the-art engine): pip install paddleocr paddlepaddle-gpu
+- doctr (document-focused engine): pip install python-doctr
 - pdf2image: pip install pdf2image
   Also requires poppler: apt install poppler-utils (Ubuntu)
 - opencv-python-headless: pip install opencv-python-headless
@@ -47,6 +50,7 @@ _T = TypeVar("_T")
 
 try:
     from tqdm import tqdm
+
     _HAS_TQDM = True
 except ImportError:
     _HAS_TQDM = False
@@ -62,10 +66,14 @@ except ImportError:
 _pytesseract: Any = None
 _easyocr_reader: Any = None
 _easyocr_reader_langs: Optional[FrozenSet[str]] = None
+_paddleocr: Any = None
+_doctr_model: Any = None
 _cv2: Any = None
 _np: Any = None
 _easyocr_lock = threading.Lock()
 _pytesseract_lock = threading.Lock()
+_paddleocr_lock = threading.Lock()
+_doctr_lock = threading.Lock()
 _cv2_lock = threading.Lock()
 _numpy_lock = threading.Lock()
 
@@ -121,6 +129,29 @@ TESSERACT_TO_EASYOCR_LANG = {
     "heb": "he",
 }
 
+# Mapping from tesseract language codes to PaddleOCR language codes
+TESSERACT_TO_PADDLEOCR_LANG = {
+    "eng": "en",
+    "deu": "german",
+    "fra": "fr",
+    "spa": "es",
+    "ita": "it",
+    "por": "pt",
+    "chi_sim": "ch",
+    "chi_tra": "chinese_cht",
+    "jpn": "japan",
+    "kor": "korean",
+    "ara": "ar",
+    "rus": "ru",
+    "nld": "dutch",
+    "pol": "pl",
+    "ukr": "uk",
+    "tur": "tr",
+    "hin": "hi",
+    "tha": "th",
+    "vie": "vi",
+}
+
 
 def _get_pytesseract() -> Any:
     """Lazy import pytesseract (thread-safe).
@@ -142,9 +173,7 @@ def _get_pytesseract() -> Any:
     return _pytesseract
 
 
-def _get_easyocr_reader(
-    langs: Optional[List[str]] = None, gpu: bool = False
-) -> Any:
+def _get_easyocr_reader(langs: Optional[List[str]] = None, gpu: bool = False) -> Any:
     """Lazy import and initialize easyocr reader (thread-safe).
 
     Note: Creates a new reader if languages differ from the cached one.
@@ -200,6 +229,46 @@ def _get_cv2() -> Any:
                     # can skip CV-based preprocessing gracefully.
                     pass
     return _cv2
+
+
+def _get_paddleocr() -> Any:
+    """Lazy import PaddleOCR (thread-safe).
+
+    Returns:
+        The PaddleOCR class if available, otherwise None.
+    """
+    global _paddleocr
+    if _paddleocr is None:
+        with _paddleocr_lock:
+            if _paddleocr is None:
+                try:
+                    from paddleocr import PaddleOCR
+
+                    _paddleocr = PaddleOCR
+                except ImportError:
+                    # paddleocr is an optional dependency; if not installed, return None
+                    pass
+    return _paddleocr
+
+
+def _get_doctr_model() -> Any:
+    """Lazy import docTR model (thread-safe).
+
+    Returns:
+        The doctr ocr_predictor if available, otherwise None.
+    """
+    global _doctr_model
+    if _doctr_model is None:
+        with _doctr_lock:
+            if _doctr_model is None:
+                try:
+                    from doctr.models import ocr_predictor
+
+                    _doctr_model = ocr_predictor
+                except ImportError:
+                    # doctr is an optional dependency; if not installed, return None
+                    pass
+    return _doctr_model
 
 
 def preprocess_image_for_ocr(image: Image.Image, enhance: bool = True) -> Image.Image:
@@ -318,6 +387,172 @@ def ocr_with_easyocr(
     # Extract just the text from results
     text_parts = [result[1] for result in results]
     return "\n".join(text_parts)
+
+
+def ocr_with_paddleocr(
+    image: Image.Image,
+    lang: str = "en",
+    gpu: bool = False,
+    return_boxes: bool = False,
+) -> Any:
+    """
+    Perform OCR using PaddleOCR v3.4.0+.
+
+    Args:
+        image: PIL Image to OCR.
+        lang: PaddleOCR language code (default: 'en').
+        gpu: Whether to use GPU acceleration.
+        return_boxes: If True, return list of dicts with text and bounding boxes.
+
+    Returns:
+        Extracted text (str), or list of dicts with boxes if return_boxes=True.
+    """
+    import os
+
+    PaddleOCR = _get_paddleocr()
+    if PaddleOCR is None:
+        raise ImportError(
+            "paddleocr not installed. Install: pip install paddleocr paddlepaddle-gpu"
+        )
+
+    np = _get_numpy()
+    if np is None:
+        raise ImportError("numpy not installed. Install: pip install numpy")
+
+    # Set environment variable to skip connectivity check
+    # Note: This is required to avoid slow network checks on every PaddleOCR initialization.
+    # PaddleOCR v3.4.0+ checks for model updates online, which can significantly delay startup.
+    # This env var is the official way to disable this check per PaddleOCR documentation.
+    # It's set here rather than globally to ensure it only affects PaddleOCR usage.
+    os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+
+    # Initialize PaddleOCR with appropriate settings
+    ocr = PaddleOCR(
+        lang=lang,
+        use_doc_orientation_classify=False,
+        use_angle_cls=False,
+        use_gpu=gpu,
+        show_log=False,
+    )
+
+    # Convert PIL Image to numpy array
+    img_array = np.array(image)
+
+    # Use predict() method (not deprecated ocr())
+    result = ocr.predict(img_array)
+
+    if return_boxes:
+        # Return structured data with bounding boxes
+        structured_results = []
+        if result and "res" in result and "rec_texts" in result["res"]:
+            rec_texts = result["res"]["rec_texts"]
+            rec_scores = result["res"].get("rec_scores", [])
+            det_polys = result["res"].get("det_polys", [])
+
+            for i, text in enumerate(rec_texts):
+                item = {"text": text}
+                if i < len(rec_scores):
+                    item["confidence"] = float(rec_scores[i])
+                if i < len(det_polys):
+                    # Convert polygon to bbox format
+                    poly = det_polys[i]
+                    item["bbox"] = [[int(p[0]), int(p[1])] for p in poly]
+                structured_results.append(item)
+
+        return structured_results
+
+    # Extract text from result
+    text_parts = []
+    if result and "res" in result and "rec_texts" in result["res"]:
+        text_parts = result["res"]["rec_texts"]
+
+    return "\n".join(text_parts)
+
+
+def ocr_with_doctr(
+    image: Image.Image,
+    gpu: bool = False,
+    return_boxes: bool = False,
+) -> Any:
+    """
+    Perform OCR using docTR.
+
+    Args:
+        image: PIL Image to OCR.
+        gpu: Whether to use GPU acceleration.
+        return_boxes: If True, return list of dicts with text and bounding boxes.
+
+    Returns:
+        Extracted text (str), or list of dicts with boxes if return_boxes=True.
+    """
+    ocr_predictor = _get_doctr_model()
+    if ocr_predictor is None:
+        raise ImportError("doctr not installed. Install: pip install python-doctr")
+
+    np = _get_numpy()
+    if np is None:
+        raise ImportError("numpy not installed. Install: pip install numpy")
+
+    # Initialize the model
+    model = ocr_predictor(pretrained=True)
+
+    # Move to GPU if requested
+    if gpu:
+        try:
+            model = model.to("cuda")
+        except (RuntimeError, AssertionError):
+            # If CUDA is not available or GPU initialization fails, continue with CPU
+            # RuntimeError: CUDA not available or out of memory
+            # AssertionError: GPU device assertion failures
+            pass
+
+    # Convert PIL Image to numpy array
+    img_array = np.array(image)
+
+    # Process with DocumentFile
+    try:
+        from doctr.io import DocumentFile
+
+        doc = DocumentFile.from_images([img_array])
+        result = model(doc)
+
+        if return_boxes:
+            # Return structured data with bounding boxes
+            structured_results = []
+            for page in result.pages:
+                for block in page.blocks:
+                    for line in block.lines:
+                        for word in line.words:
+                            # Get bounding box coordinates
+                            # docTR uses normalized coordinates (0-1)
+                            # Convert to pixel coordinates
+                            h, w = img_array.shape[:2]
+                            geometry = word.geometry
+                            x1, y1 = int(geometry[0][0] * w), int(geometry[0][1] * h)
+                            x2, y2 = int(geometry[1][0] * w), int(geometry[1][1] * h)
+
+                            structured_results.append(
+                                {
+                                    "text": word.value,
+                                    "confidence": float(word.confidence),
+                                    "bbox": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                                }
+                            )
+            return structured_results
+
+        # Extract text from result
+        text_parts = []
+        for page in result.pages:
+            for block in page.blocks:
+                for line in block.lines:
+                    line_text = " ".join([word.value for word in line.words])
+                    if line_text.strip():
+                        text_parts.append(line_text)
+
+        return "\n".join(text_parts)
+
+    except ImportError:
+        raise ImportError("doctr.io not available. Install: pip install python-doctr")
 
 
 def pdf_to_images(
@@ -457,11 +692,11 @@ def ocr_image(
 
     Args:
         image: PIL Image to OCR.
-        engine: OCR engine ('tesseract' or 'easyocr').
+        engine: OCR engine ('tesseract', 'easyocr', 'paddleocr', or 'doctr').
         lang: Language code(s).
         enhance: Apply preprocessing.
-        gpu: Use GPU acceleration for EasyOCR.
-        return_boxes: Return structured data with bounding boxes (EasyOCR only).
+        gpu: Use GPU acceleration for EasyOCR, PaddleOCR, and docTR.
+        return_boxes: Return structured data with bounding boxes.
 
     Returns:
         Extracted text (str), or list of dicts with boxes if return_boxes=True.
@@ -477,6 +712,18 @@ def ocr_image(
             easyocr_lang = lang[:2] if len(lang) > 2 else lang
         langs = [easyocr_lang] if easyocr_lang else ["en"]
         return ocr_with_easyocr(processed, langs, gpu=gpu, return_boxes=return_boxes)
+    elif engine == "paddleocr":
+        # Convert tesseract lang code to paddleocr using mapping
+        if lang in TESSERACT_TO_PADDLEOCR_LANG:
+            paddleocr_lang = TESSERACT_TO_PADDLEOCR_LANG[lang]
+        else:
+            # Fallback: try first 2 chars or use as-is
+            paddleocr_lang = lang[:2] if len(lang) > 2 else lang
+        return ocr_with_paddleocr(
+            processed, paddleocr_lang, gpu=gpu, return_boxes=return_boxes
+        )
+    elif engine == "doctr":
+        return ocr_with_doctr(processed, gpu=gpu, return_boxes=return_boxes)
     else:
         return ocr_with_tesseract(processed, lang)
 
@@ -510,7 +757,7 @@ def ocr_pdf(
         quiet: Suppress output.
         pages: Optional list of 1-indexed page numbers to OCR.
         output_format: Output format ('text' or 'json').
-        gpu: Use GPU acceleration for EasyOCR.
+        gpu: Use GPU acceleration for EasyOCR, PaddleOCR, and docTR.
 
     Returns:
         Path to output text file, or None if failed.
@@ -553,7 +800,7 @@ def ocr_pdf(
 
     for page_num, image in pages_iter:
         try:
-            if output_format == "json" and engine == "easyocr":
+            if output_format == "json" and engine in ["easyocr", "paddleocr", "doctr"]:
                 # Get structured results with bounding boxes
                 results = ocr_image(
                     image,
@@ -631,7 +878,7 @@ def ocr_image_file(
         force: Force overwrite.
         quiet: Suppress output.
         output_format: Output format ('text' or 'json').
-        gpu: Use GPU acceleration for EasyOCR.
+        gpu: Use GPU acceleration for EasyOCR, PaddleOCR, and docTR.
 
     Returns:
         Path to output text file, or None if failed.
@@ -658,7 +905,7 @@ def ocr_image_file(
     try:
         image = Image.open(image_path)
 
-        if output_format == "json" and engine == "easyocr":
+        if output_format == "json" and engine in ["easyocr", "paddleocr", "doctr"]:
             results = ocr_image(
                 image,
                 engine=engine,
@@ -762,6 +1009,20 @@ def check_engine_available(engine: str) -> bool:
             return True
         except ImportError:
             return False
+    elif engine == "paddleocr":
+        try:
+            import paddleocr  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+    elif engine == "doctr":
+        try:
+            import doctr  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
     else:  # tesseract
         try:
             import pytesseract
@@ -783,6 +1044,8 @@ Examples:
   pdfocr scanned.pdf                      # OCR a PDF with tesseract
   pdfocr scanned.pdf -e easyocr           # OCR with easyocr (better quality)
   pdfocr scanned.pdf -e easyocr --gpu     # OCR with easyocr using GPU
+  pdfocr scanned.pdf -e paddleocr --gpu   # OCR with paddleocr using GPU
+  pdfocr scanned.pdf -e doctr --gpu       # OCR with doctr using GPU
   pdfocr image.png                        # OCR an image
   pdfocr /path/to/files/                  # Batch process directory
   pdfocr a.pdf b.png -d output            # Process multiple files
@@ -794,6 +1057,8 @@ Examples:
 Supported OCR engines:
   tesseract  - Fast, default, requires tesseract-ocr binary
   easyocr    - Better quality, slower, pure Python (use --gpu for speed)
+  paddleocr  - State-of-the-art, multilingual, excellent for tables (use --gpu)
+  doctr      - Document-focused, PyTorch backend (use --gpu for speed)
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -806,7 +1071,7 @@ Supported OCR engines:
     parser.add_argument(
         "-e",
         "--engine",
-        choices=["tesseract", "easyocr"],
+        choices=["tesseract", "easyocr", "paddleocr", "doctr"],
         default="tesseract",
         help="OCR engine to use (default: tesseract)",
     )
@@ -847,12 +1112,12 @@ Supported OCR engines:
         "--format",
         choices=["text", "json"],
         default="text",
-        help="Output format: text (default) or json (includes bounding boxes with easyocr)",
+        help="Output format: text (default) or json (includes bounding boxes with easyocr/paddleocr/doctr)",
     )
     parser.add_argument(
         "--gpu",
         action="store_true",
-        help="Use GPU acceleration for EasyOCR (requires CUDA)",
+        help="Use GPU acceleration for EasyOCR, PaddleOCR, and docTR (requires CUDA)",
     )
     parser.add_argument(
         "-f",
@@ -912,7 +1177,10 @@ Supported OCR engines:
 
     # Warn if --gpu specified with tesseract
     if args.gpu and args.engine == "tesseract":
-        print("Warning: --gpu is only supported with easyocr engine.", file=sys.stderr)
+        print(
+            "Warning: --gpu is only supported with easyocr, paddleocr, and doctr engines.",
+            file=sys.stderr,
+        )
 
     # Process inputs
     files = process_inputs(args.inputs)
