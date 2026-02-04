@@ -420,6 +420,10 @@ def ocr_with_paddleocr(
         raise ImportError("numpy not installed. Install: pip install numpy")
 
     # Set environment variable to skip connectivity check
+    # Note: This is required to avoid slow network checks on every PaddleOCR initialization.
+    # PaddleOCR v3.4.0+ checks for model updates online, which can significantly delay startup.
+    # This env var is the official way to disable this check per PaddleOCR documentation.
+    # It's set here rather than globally to ensure it only affects PaddleOCR usage.
     os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
     # Initialize PaddleOCR with appropriate settings
@@ -496,8 +500,10 @@ def ocr_with_doctr(
     if gpu:
         try:
             model = model.to("cuda")
-        except Exception:
-            # If GPU is not available, continue with CPU
+        except (RuntimeError, AssertionError):
+            # If CUDA is not available or GPU initialization fails, continue with CPU
+            # RuntimeError: CUDA not available or out of memory
+            # AssertionError: GPU device assertion failures
             pass
 
     # Convert PIL Image to numpy array
