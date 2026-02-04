@@ -216,6 +216,73 @@ class TestOcrWithEasyocr:
                     pdfocr.ocr_with_easyocr(img)
 
 
+class TestOcrWithTrocr:
+    """Tests for ocr_with_trocr function."""
+
+    def test_requires_transformers(self, sample_png_path: Path):
+        """Raises ImportError when transformers not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        with patch.object(pdfocr, "_get_trocr", return_value=(None, None)):
+            with pytest.raises(ImportError, match="transformers"):
+                pdfocr.ocr_with_trocr(img)
+
+    def test_printed_variant(self, sample_png_path: Path):
+        """Calls TrOCR with printed model variant."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_processor = MagicMock()
+        mock_model = MagicMock()
+        mock_pixel_values = MagicMock()
+        mock_pixel_values.to.return_value = mock_pixel_values
+        mock_processor.return_value.pixel_values = mock_pixel_values
+        mock_model.generate.return_value = [[1, 2, 3]]
+        mock_processor.batch_decode.return_value = ["test text"]
+        
+        with patch.object(pdfocr, "_get_trocr", return_value=(mock_processor, mock_model)):
+            result = pdfocr.ocr_with_trocr(img, model_variant="printed", gpu=False)
+            assert result == "test text"
+
+    def test_handwritten_variant(self, sample_png_path: Path):
+        """Calls TrOCR with handwritten model variant."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_processor = MagicMock()
+        mock_model = MagicMock()
+        mock_pixel_values = MagicMock()
+        mock_pixel_values.to.return_value = mock_pixel_values
+        mock_processor.return_value.pixel_values = mock_pixel_values
+        mock_model.generate.return_value = [[1, 2, 3]]
+        mock_processor.batch_decode.return_value = ["handwritten text"]
+        
+        with patch.object(pdfocr, "_get_trocr", return_value=(mock_processor, mock_model)):
+            result = pdfocr.ocr_with_trocr(img, model_variant="handwritten", gpu=False)
+            assert result == "handwritten text"
+
+    def test_return_boxes(self, sample_png_path: Path):
+        """Returns structured data when return_boxes=True."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_processor = MagicMock()
+        mock_model = MagicMock()
+        mock_pixel_values = MagicMock()
+        mock_pixel_values.to.return_value = mock_pixel_values
+        mock_processor.return_value.pixel_values = mock_pixel_values
+        mock_model.generate.return_value = [[1, 2, 3]]
+        mock_processor.batch_decode.return_value = ["test text"]
+        
+        with patch.object(pdfocr, "_get_trocr", return_value=(mock_processor, mock_model)):
+            result = pdfocr.ocr_with_trocr(img, return_boxes=True)
+            assert isinstance(result, dict)
+            assert result["text"] == "test text"
+            assert result["confidence"] is None
+            assert result["bbox"] is None
+
+
 class TestCheckEngineAvailable:
     """Tests for check_engine_available function."""
 
@@ -235,6 +302,26 @@ class TestCheckEngineAvailable:
 
         with patch("builtins.__import__", side_effect=mock_import):
             result = pdfocr.check_engine_available("easyocr")
+            assert result is False
+
+    def test_trocr_not_available(self):
+        """Returns False when trocr not available."""
+        # Mock import failure
+        def mock_import(*args, **kwargs):
+            raise ImportError("No module named 'transformers'")
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = pdfocr.check_engine_available("trocr")
+            assert result is False
+
+    def test_trocr_handwritten_not_available(self):
+        """Returns False when trocr-handwritten not available."""
+        # Mock import failure
+        def mock_import(*args, **kwargs):
+            raise ImportError("No module named 'transformers'")
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = pdfocr.check_engine_available("trocr-handwritten")
             assert result is False
 
 
@@ -286,6 +373,34 @@ class TestOcrImage:
                 # Check that easyocr was called with converted language
                 call_args = mock_easyocr.call_args
                 assert call_args[0][1] == ["en"]
+
+    def test_trocr_engine(self, sample_png_path: Path):
+        """Calls trocr engine when specified."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_trocr = MagicMock(return_value="test text")
+        with patch.object(pdfocr, "ocr_with_trocr", mock_trocr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="trocr")
+                mock_trocr.assert_called_once()
+                # Check that printed variant was used
+                call_args = mock_trocr.call_args
+                assert call_args[1]["model_variant"] == "printed"
+
+    def test_trocr_handwritten_engine(self, sample_png_path: Path):
+        """Calls trocr-handwritten engine when specified."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_trocr = MagicMock(return_value="handwritten text")
+        with patch.object(pdfocr, "ocr_with_trocr", mock_trocr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="trocr-handwritten")
+                mock_trocr.assert_called_once()
+                # Check that handwritten variant was used
+                call_args = mock_trocr.call_args
+                assert call_args[1]["model_variant"] == "handwritten"
 
 
 class TestCLI:
@@ -372,7 +487,28 @@ class TestCLI:
                 with patch.object(pdfocr, "ocr_image_file", return_value=None):
                     pdfocr.main()
         captured = capsys.readouterr()
-        assert "--gpu is only supported with easyocr" in captured.err
+        assert "--gpu is only supported with easyocr and trocr" in captured.err
+
+    def test_cli_trocr_engine_selection(self, sample_png_path: Path, tmp_path: Path):
+        """CLI respects trocr engine selection."""
+        output_dir = tmp_path / "output"
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "pdfocr",
+                str(sample_png_path),
+                "-e",
+                "trocr",
+                "-d",
+                str(output_dir),
+                "-q",
+                "-f",
+            ],
+        ):
+            with patch.object(pdfocr, "check_engine_available", return_value=True):
+                with patch.object(pdfocr, "ocr_image_file", return_value=None):
+                    pdfocr.main()
 
 
 class TestConstants:
