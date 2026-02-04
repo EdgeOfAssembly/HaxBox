@@ -216,6 +216,54 @@ class TestOcrWithEasyocr:
                     pdfocr.ocr_with_easyocr(img)
 
 
+class TestOcrWithPaddleocr:
+    """Tests for ocr_with_paddleocr function."""
+
+    def test_requires_paddleocr(self, sample_png_path: Path):
+        """Raises ImportError when paddleocr not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        with patch.object(pdfocr, "_get_paddleocr", return_value=None):
+            with pytest.raises(ImportError, match="paddleocr"):
+                pdfocr.ocr_with_paddleocr(img)
+
+    def test_requires_numpy(self, sample_png_path: Path):
+        """Raises ImportError when numpy not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddleocr = MagicMock()
+        with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddleocr):
+            with patch.object(pdfocr, "_get_numpy", return_value=None):
+                with pytest.raises(ImportError, match="numpy"):
+                    pdfocr.ocr_with_paddleocr(img)
+
+
+class TestOcrWithDoctr:
+    """Tests for ocr_with_doctr function."""
+
+    def test_requires_doctr(self, sample_png_path: Path):
+        """Raises ImportError when doctr not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        with patch.object(pdfocr, "_get_doctr_model", return_value=None):
+            with pytest.raises(ImportError, match="doctr"):
+                pdfocr.ocr_with_doctr(img)
+
+    def test_requires_numpy(self, sample_png_path: Path):
+        """Raises ImportError when numpy not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_doctr = MagicMock()
+        with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
+            with patch.object(pdfocr, "_get_numpy", return_value=None):
+                with pytest.raises(ImportError, match="numpy"):
+                    pdfocr.ocr_with_doctr(img)
+
+
 class TestCheckEngineAvailable:
     """Tests for check_engine_available function."""
 
@@ -237,6 +285,26 @@ class TestCheckEngineAvailable:
             result = pdfocr.check_engine_available("easyocr")
             assert result is False
 
+    def test_paddleocr_not_available(self):
+        """Returns False when paddleocr not available."""
+        # Mock import failure
+        def mock_import(*args, **kwargs):
+            raise ImportError("No module named 'paddleocr'")
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = pdfocr.check_engine_available("paddleocr")
+            assert result is False
+
+    def test_doctr_not_available(self):
+        """Returns False when doctr not available."""
+        # Mock import failure
+        def mock_import(*args, **kwargs):
+            raise ImportError("No module named 'doctr'")
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = pdfocr.check_engine_available("doctr")
+            assert result is False
+
 
 class TestLanguageMapping:
     """Tests for language code mapping."""
@@ -247,6 +315,14 @@ class TestLanguageMapping:
         assert pdfocr.TESSERACT_TO_EASYOCR_LANG["deu"] == "de"
         assert pdfocr.TESSERACT_TO_EASYOCR_LANG["fra"] == "fr"
         assert pdfocr.TESSERACT_TO_EASYOCR_LANG["chi_sim"] == "ch_sim"
+
+    def test_tesseract_to_paddleocr_mapping(self):
+        """PaddleOCR language mapping contains expected entries."""
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["eng"] == "en"
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["deu"] == "german"
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["fra"] == "fr"
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["chi_sim"] == "ch"
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["jpn"] == "japan"
 
 
 class TestOcrImage:
@@ -286,6 +362,41 @@ class TestOcrImage:
                 # Check that easyocr was called with converted language
                 call_args = mock_easyocr.call_args
                 assert call_args[0][1] == ["en"]
+
+    def test_paddleocr_engine(self, sample_png_path: Path):
+        """Calls paddleocr engine when specified."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddleocr = MagicMock(return_value="test text")
+        with patch.object(pdfocr, "ocr_with_paddleocr", mock_paddleocr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="paddleocr")
+                mock_paddleocr.assert_called_once()
+
+    def test_language_conversion_for_paddleocr(self, sample_png_path: Path):
+        """Converts tesseract lang code to paddleocr."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddleocr = MagicMock(return_value="test")
+        with patch.object(pdfocr, "ocr_with_paddleocr", mock_paddleocr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="paddleocr", lang="eng")
+                # Check that paddleocr was called with converted language
+                call_args = mock_paddleocr.call_args
+                assert call_args[0][1] == "en"
+
+    def test_doctr_engine(self, sample_png_path: Path):
+        """Calls doctr engine when specified."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_doctr = MagicMock(return_value="test text")
+        with patch.object(pdfocr, "ocr_with_doctr", mock_doctr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="doctr")
+                mock_doctr.assert_called_once()
 
 
 class TestCLI:
