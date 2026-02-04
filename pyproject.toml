@@ -29,6 +29,8 @@ module = [
     "pynput.*",
     "tqdm",
     "tqdm.*",
+    "transformers",
+    "transformers.*",
 ]
 ignore_missing_imports = true
 
