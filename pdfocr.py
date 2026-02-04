@@ -227,8 +227,8 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
     model_name = model_map.get(model_variant, model_map["printed"])
     
     with _trocr_lock:
-        # Reinitialize if model variant changed
-        if _trocr_model is not None and _trocr_model_name == model_name:
+        # Return cached model if already initialized with same variant
+        if _trocr_processor is not None and _trocr_model is not None and _trocr_model_name == model_name:
             return _trocr_processor, _trocr_model
         
         try:
