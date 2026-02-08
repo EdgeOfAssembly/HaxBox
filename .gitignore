@@ -77,3 +77,4 @@ llm_prep/
 # Temporary files
 *.tmp
 *.temp
+test_data/
