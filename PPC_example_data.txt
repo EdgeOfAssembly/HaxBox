@@ -1,3 +1,5 @@
+--- Page 1 ---
+
 PROGRAM MODULE		acarb01
 
 DATE			29/04/2010
@@ -27,7 +29,7 @@ _____________________________________________________________________________
 The calculated aromatic carbon content Ca% is:				16.1352%
 The calculated aromatic hydrogen content Ha% is:			5.14634%
 
----
+--- Page 2 ---
 
 PROGRAM MODULE		acarb02  
 
@@ -64,7 +66,7 @@ Number of naphthenic rings Rn is					1.833
 Number of total carbons C is						22.7822
 The average molecular mass is						314.951 grams/mol
 
----
+--- Page 3 ---
 
 PROGRAM MODULE 		acarb03
 
@@ -94,7 +96,7 @@ CALCULATED RESULTS
 _____________________________________________________________________________
 The number of aromatic carbon atoms Ca in average molecule is		6.09673
 
----
+--- Page 4 ---
 
 PROGRAM MODULE		acarb04
 
@@ -128,7 +130,7 @@ Calcukated average carbon number C is					25.5128
 The calculated hydrogen deficiency Z in formula CcH2 * c + z is 	-2.93058
 The calculated aromatic carbon content Ca% = 100 * Ca/C is		9.98464%
 
----
+--- Page 5 ---
 
 PROGRAM MODULE		acarb05
 
@@ -156,7 +158,7 @@ _____________________________________________________________________________
 The calculated carbon aromaticity is					28.4724%
 The calculated aromatic carbon content, Ca% is				24.2807 weight-%
 
----
+--- Page 6 ---
 
 PROGRAM MODULE		acarb06
 
@@ -185,7 +187,7 @@ CALCULATED RESULTS
 _____________________________________________________________________________
 The calculated aromatic carbon content Ca% is				41.7231 %
 
----
+--- Page 7 ---
 
 PROGRAM MODULE		acarb07
 
@@ -214,7 +216,7 @@ _____________________________________________________________________________
 The calculated carbon aromaticity is					54.548 %
 The calculated hydrogen aromaticity is					25.2859 %
 
----
+--- Page 8 ---
 
 PROGRAM MODULE		acarb08
 
@@ -243,7 +245,7 @@ CALCULATED RESULTS
 _____________________________________________________________________________________
 The calculated aromatic carbon content Ca% is					21.6836 %
 
----
+--- Page 9 ---
 
 PROGRAM MODULE		acarb09
 
@@ -270,7 +272,7 @@ CALCULATED RESULTS
 _____________________________________________________________________________
 The calculated aromatic hydrogen content Ha% is				4.62348%
 
----
+--- Page 10 ---
 
 PROGRAM MODULE		acarb10
 
@@ -297,6 +299,3 @@ CALCULATED RESULTS
 _____________________________________________________________________________
 The calculated aromatic carbon content Ca% is				66.7907%
 
----
-
-summary, Excel-ready, or only specific modules).
