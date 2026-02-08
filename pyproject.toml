@@ -13,6 +13,8 @@ module = [
     "pytesseract.*",
     "easyocr",
     "easyocr.*",
+    "transformers",
+    "transformers.*",
     "paddleocr",
     "paddleocr.*",
     "doctr",
