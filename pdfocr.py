@@ -108,6 +108,13 @@ SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp", 
 MIN_DPI = 72
 MAX_DPI = 600
 
+# TrOCR configuration
+# TrOCR is designed for line-level OCR and resizes images to 384x384
+# Warn if image dimensions exceed this threshold (likely a full page)
+TROCR_LARGE_IMAGE_THRESHOLD = 1000
+# Maximum tokens to generate for TrOCR output (sufficient for typical text lines)
+TROCR_MAX_TOKENS = 256
+
 # Mapping from tesseract language codes to easyocr language codes
 # Not all tesseract languages are supported by easyocr
 TESSERACT_TO_EASYOCR_LANG = {
@@ -315,6 +322,12 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
             _trocr_cache[cache_key] = (processor, model)
             
         except ImportError as e:
+            # Log import error for debugging
+            import sys
+            print(
+                f"Warning: Failed to import TrOCR dependencies: {e}",
+                file=sys.stderr
+            )
             return None, None
     
     return _trocr_cache[cache_key]
@@ -643,7 +656,7 @@ def ocr_with_trocr(
     # Warn if image is too large (likely a full page)
     # TrOCR works best on text lines, not full pages
     width, height = image.size
-    if width > 1000 or height > 1000:
+    if width > TROCR_LARGE_IMAGE_THRESHOLD or height > TROCR_LARGE_IMAGE_THRESHOLD:
         import sys
         print(
             f"Warning: Image size ({width}x{height}) is large for TrOCR. "
@@ -659,7 +672,7 @@ def ocr_with_trocr(
     pixel_values = processor(images=image, return_tensors='pt').pixel_values.to(device)
     
     # Generate text
-    generated_ids = model.generate(pixel_values, max_new_tokens=256)
+    generated_ids = model.generate(pixel_values, max_new_tokens=TROCR_MAX_TOKENS)
     text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
     
     if return_boxes:

@@ -242,7 +242,7 @@ class TestOcrWithTrocr:
         mock_processor.return_value.pixel_values = mock_pixel_values
         mock_model.generate.return_value = [[1, 2, 3]]
         mock_processor.batch_decode.return_value = ["test text"]
-        
+
         with patch.object(pdfocr, "_get_trocr", return_value=(mock_processor, mock_model)):
             result = pdfocr.ocr_with_trocr(img, model_variant="printed", gpu=False)
             assert result == "test text"
@@ -259,7 +259,7 @@ class TestOcrWithTrocr:
         mock_processor.return_value.pixel_values = mock_pixel_values
         mock_model.generate.return_value = [[1, 2, 3]]
         mock_processor.batch_decode.return_value = ["handwritten text"]
-        
+
         with patch.object(pdfocr, "_get_trocr", return_value=(mock_processor, mock_model)):
             result = pdfocr.ocr_with_trocr(img, model_variant="handwritten", gpu=False)
             assert result == "handwritten text"
@@ -276,7 +276,7 @@ class TestOcrWithTrocr:
         mock_processor.return_value.pixel_values = mock_pixel_values
         mock_model.generate.return_value = [[1, 2, 3]]
         mock_processor.batch_decode.return_value = ["test text"]
-        
+
         with patch.object(pdfocr, "_get_trocr", return_value=(mock_processor, mock_model)):
             result = pdfocr.ocr_with_trocr(img, return_boxes=True)
             assert isinstance(result, dict)
