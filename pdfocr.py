@@ -21,7 +21,8 @@ Dependencies:
 - pytesseract (default engine): pip install pytesseract
   Also requires tesseract binary: apt install tesseract-ocr (Ubuntu)
 - easyocr (higher accuracy engine): pip install easyocr
-- transformers (trocr engine): pip install transformers
+- transformers (trocr engine, line-level OCR): pip install transformers torch
+  NOTE: TrOCR works best on text lines, not full pages. Use tesseract/easyocr for full pages.
 - pdf2image: pip install pdf2image
   Also requires poppler: apt install poppler-utils (Ubuntu)
 - opencv-python-headless: pip install opencv-python-headless
@@ -376,8 +377,14 @@ def ocr_with_trocr(
 ) -> Any:
     """Perform OCR using Microsoft TrOCR.
     
+    NOTE: TrOCR is designed for line-level OCR (single lines of text), not full-page documents.
+    For best results, use TrOCR on cropped text line images. Full-page documents will be 
+    resized to 384x384 pixels, causing distortion and poor recognition quality.
+    
+    For full-page document OCR, consider using tesseract or easyocr engines instead.
+    
     Args:
-        image: PIL Image to OCR.
+        image: PIL Image to OCR. Best results with single text lines (cropped regions).
         model_variant: 'printed' or 'handwritten'
         gpu: Whether to use GPU acceleration.
         return_boxes: If True, return structured data (TrOCR doesn't provide boxes natively)
@@ -397,6 +404,18 @@ def ocr_with_trocr(
     # Ensure RGB
     if image.mode != 'RGB':
         image = image.convert('RGB')
+    
+    # Warn if image is too large (likely a full page)
+    # TrOCR works best on text lines, not full pages
+    width, height = image.size
+    if width > 1000 or height > 1000:
+        import sys
+        print(
+            f"Warning: Image size ({width}x{height}) is large for TrOCR. "
+            f"TrOCR is designed for line-level OCR and will resize to 384x384, "
+            f"causing distortion. For full-page OCR, use tesseract or easyocr instead.",
+            file=sys.stderr
+        )
     
     # Get device from model
     device = next(model.parameters()).device
@@ -901,8 +920,10 @@ Examples:
 Supported OCR engines:
   tesseract        - Fast, default, requires tesseract-ocr binary
   easyocr          - Better quality, slower, pure Python (use --gpu for speed)
-  trocr            - Microsoft transformer OCR for printed text (use --gpu)
-  trocr-handwritten - Microsoft transformer OCR for handwriting (use --gpu)
+  trocr            - Transformer OCR for line-level printed text (use --gpu)
+                     NOTE: Best for text lines, not full pages
+  trocr-handwritten - Transformer OCR for line-level handwriting (use --gpu)
+                     NOTE: Best for text lines, not full pages
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
