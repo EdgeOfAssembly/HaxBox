@@ -4,7 +4,7 @@ pdfocr - OCR tool for extracting text from PDFs and images.
 
 Features:
 - Extract text from scanned PDFs and images using OCR
-- Support multiple OCR engines: tesseract (fast, default), easyocr (higher accuracy)
+- Support multiple OCR engines: tesseract (fast, default), easyocr (higher accuracy), trocr (transformer-based)
 - Multiple input files and batch directory processing
 - Image preprocessing for better OCR accuracy
 - Page selection for OCR (e.g., only first 5 pages)
@@ -21,6 +21,8 @@ Dependencies:
 - pytesseract (default engine): pip install pytesseract
   Also requires tesseract binary: apt install tesseract-ocr (Ubuntu)
 - easyocr (higher accuracy engine): pip install easyocr
+- transformers (trocr engine, line-level OCR): pip install transformers torch
+  NOTE: TrOCR works best on text lines, not full pages. Use tesseract/easyocr for full pages.
 - pdf2image: pip install pdf2image
   Also requires poppler: apt install poppler-utils (Ubuntu)
 - opencv-python-headless: pip install opencv-python-headless
@@ -64,10 +66,12 @@ _easyocr_reader: Any = None
 _easyocr_reader_langs: Optional[FrozenSet[str]] = None
 _cv2: Any = None
 _np: Any = None
+_trocr_cache: Dict[Tuple[str, str], Tuple[Any, Any]] = {}  # Cache by (model_name, device)
 _easyocr_lock = threading.Lock()
 _pytesseract_lock = threading.Lock()
 _cv2_lock = threading.Lock()
 _numpy_lock = threading.Lock()
+_trocr_lock = threading.Lock()
 
 
 def _get_numpy() -> Any:
@@ -202,6 +206,51 @@ def _get_cv2() -> Any:
     return _cv2
 
 
+def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, Any]:
+    """Lazy import and initialize TrOCR processor and model (thread-safe).
+    
+    Args:
+        model_variant: 'printed' or 'handwritten'
+        gpu: Whether to use GPU acceleration
+    
+    Returns:
+        Tuple of (processor, model)
+    """
+    global _trocr_cache
+    
+    # Model names
+    model_map = {
+        "printed": "microsoft/trocr-base-printed",
+        "handwritten": "microsoft/trocr-base-handwritten",
+    }
+    model_name = model_map.get(model_variant, model_map["printed"])
+    device = 'cuda' if gpu else 'cpu'
+    cache_key = (model_name, device)
+    
+    with _trocr_lock:
+        # Return cached model if already initialized with same variant and device
+        if cache_key in _trocr_cache:
+            return _trocr_cache[cache_key]
+        
+        try:
+            from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+            
+            processor = TrOCRProcessor.from_pretrained(model_name)
+            model = VisionEncoderDecoderModel.from_pretrained(model_name)
+            
+            # Move model to device
+            model = model.to(device)
+            model.eval()
+            
+            # Cache the model and processor
+            _trocr_cache[cache_key] = (processor, model)
+            
+        except ImportError as e:
+            return None, None
+    
+    return _trocr_cache[cache_key]
+
+
 def preprocess_image_for_ocr(image: Image.Image, enhance: bool = True) -> Image.Image:
     """
     Preprocess image to improve OCR accuracy.
@@ -318,6 +367,71 @@ def ocr_with_easyocr(
     # Extract just the text from results
     text_parts = [result[1] for result in results]
     return "\n".join(text_parts)
+
+
+def ocr_with_trocr(
+    image: Image.Image,
+    model_variant: str = "printed",
+    gpu: bool = False,
+    return_boxes: bool = False,
+) -> Any:
+    """Perform OCR using Microsoft TrOCR.
+    
+    NOTE: TrOCR is designed for line-level OCR (single lines of text), not full-page documents.
+    For best results, use TrOCR on cropped text line images. Full-page documents will be 
+    resized to 384x384 pixels, causing distortion and poor recognition quality.
+    
+    For full-page document OCR, consider using tesseract or easyocr engines instead.
+    
+    Args:
+        image: PIL Image to OCR. Best results with single text lines (cropped regions).
+        model_variant: 'printed' or 'handwritten'
+        gpu: Whether to use GPU acceleration.
+        return_boxes: If True, return structured data (TrOCR doesn't provide boxes natively)
+    
+    Returns:
+        Extracted text (str), or dict with text if return_boxes=True.
+    """
+    processor, model = _get_trocr(model_variant, gpu=gpu)
+    
+    if processor is None or model is None:
+        raise ImportError(
+            "TrOCR dependencies are missing or failed to import. "
+            "Ensure that the 'transformers' library and its dependencies such as 'torch' "
+            "are installed (for example: pip install transformers torch)."
+        )
+    
+    # Ensure RGB
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+    
+    # Warn if image is too large (likely a full page)
+    # TrOCR works best on text lines, not full pages
+    width, height = image.size
+    if width > 1000 or height > 1000:
+        import sys
+        print(
+            f"Warning: Image size ({width}x{height}) is large for TrOCR. "
+            f"TrOCR is designed for line-level OCR and will resize to 384x384, "
+            f"causing distortion. For full-page OCR, use tesseract or easyocr instead.",
+            file=sys.stderr
+        )
+    
+    # Get device from model
+    device = next(model.parameters()).device
+    
+    # Process image - processor returns pixel_values
+    pixel_values = processor(images=image, return_tensors='pt').pixel_values.to(device)
+    
+    # Generate text
+    generated_ids = model.generate(pixel_values, max_new_tokens=256)
+    text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    
+    if return_boxes:
+        # TrOCR doesn't provide bounding boxes natively
+        return {"text": text, "confidence": None, "bbox": None}
+    
+    return text
 
 
 def pdf_to_images(
@@ -457,18 +571,22 @@ def ocr_image(
 
     Args:
         image: PIL Image to OCR.
-        engine: OCR engine ('tesseract' or 'easyocr').
+        engine: OCR engine ('tesseract', 'easyocr', 'trocr', or 'trocr-handwritten').
         lang: Language code(s).
         enhance: Apply preprocessing.
-        gpu: Use GPU acceleration for EasyOCR.
-        return_boxes: Return structured data with bounding boxes (EasyOCR only).
+        gpu: Use GPU acceleration for EasyOCR and TrOCR.
+        return_boxes: Return structured data with bounding boxes (EasyOCR) or text-only dict (TrOCR).
 
     Returns:
-        Extracted text (str), or list of dicts with boxes if return_boxes=True.
+        Extracted text (str), or list of dicts with boxes for EasyOCR, or dict with text for TrOCR if return_boxes=True.
     """
     processed = preprocess_image_for_ocr(image, enhance=enhance)
 
-    if engine == "easyocr":
+    if engine == "trocr":
+        return ocr_with_trocr(processed, model_variant="printed", gpu=gpu, return_boxes=return_boxes)
+    elif engine == "trocr-handwritten":
+        return ocr_with_trocr(processed, model_variant="handwritten", gpu=gpu, return_boxes=return_boxes)
+    elif engine == "easyocr":
         # Convert tesseract lang code to easyocr using mapping
         if lang in TESSERACT_TO_EASYOCR_LANG:
             easyocr_lang = TESSERACT_TO_EASYOCR_LANG[lang]
@@ -762,6 +880,13 @@ def check_engine_available(engine: str) -> bool:
             return True
         except ImportError:
             return False
+    elif engine in ("trocr", "trocr-handwritten"):
+        try:
+            from transformers import TrOCRProcessor, VisionEncoderDecoderModel  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
     else:  # tesseract
         try:
             import pytesseract
@@ -783,6 +908,7 @@ Examples:
   pdfocr scanned.pdf                      # OCR a PDF with tesseract
   pdfocr scanned.pdf -e easyocr           # OCR with easyocr (better quality)
   pdfocr scanned.pdf -e easyocr --gpu     # OCR with easyocr using GPU
+  pdfocr scanned.pdf -e trocr --gpu       # OCR with TrOCR transformer model
   pdfocr image.png                        # OCR an image
   pdfocr /path/to/files/                  # Batch process directory
   pdfocr a.pdf b.png -d output            # Process multiple files
@@ -792,8 +918,12 @@ Examples:
   pdfocr scanned.pdf --format json        # Output as JSON with bounding boxes
 
 Supported OCR engines:
-  tesseract  - Fast, default, requires tesseract-ocr binary
-  easyocr    - Better quality, slower, pure Python (use --gpu for speed)
+  tesseract        - Fast, default, requires tesseract-ocr binary
+  easyocr          - Better quality, slower, pure Python (use --gpu for speed)
+  trocr            - Transformer OCR for line-level printed text (use --gpu)
+                     NOTE: Best for text lines, not full pages
+  trocr-handwritten - Transformer OCR for line-level handwriting (use --gpu)
+                     NOTE: Best for text lines, not full pages
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -806,7 +936,7 @@ Supported OCR engines:
     parser.add_argument(
         "-e",
         "--engine",
-        choices=["tesseract", "easyocr"],
+        choices=["tesseract", "easyocr", "trocr", "trocr-handwritten"],
         default="tesseract",
         help="OCR engine to use (default: tesseract)",
     )
@@ -852,7 +982,7 @@ Supported OCR engines:
     parser.add_argument(
         "--gpu",
         action="store_true",
-        help="Use GPU acceleration for EasyOCR (requires CUDA)",
+        help="Use GPU acceleration for EasyOCR and TrOCR (requires CUDA)",
     )
     parser.add_argument(
         "-f",
@@ -902,6 +1032,21 @@ Supported OCR engines:
                     file=sys.stderr,
                 )
                 sys.exit(1)
+        elif args.engine in ("trocr", "trocr-handwritten"):
+            print(
+                f"Error: {args.engine} not available. Install: pip install transformers",
+                file=sys.stderr,
+            )
+            if not args.quiet:
+                print("Falling back to tesseract...", file=sys.stderr)
+            args.engine = "tesseract"
+            if not check_engine_available("tesseract"):
+                print("Error: tesseract also not available.", file=sys.stderr)
+                print(
+                    "Install: pip install pytesseract && apt install tesseract-ocr",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
         else:
             print("Error: tesseract not available.", file=sys.stderr)
             print(
@@ -912,7 +1057,7 @@ Supported OCR engines:
 
     # Warn if --gpu specified with tesseract
     if args.gpu and args.engine == "tesseract":
-        print("Warning: --gpu is only supported with easyocr engine.", file=sys.stderr)
+        print("Warning: --gpu is only supported with easyocr, trocr, and trocr-handwritten engines.", file=sys.stderr)
 
     # Process inputs
     files = process_inputs(args.inputs)
