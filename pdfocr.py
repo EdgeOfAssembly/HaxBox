@@ -65,9 +65,7 @@ _easyocr_reader: Any = None
 _easyocr_reader_langs: Optional[FrozenSet[str]] = None
 _cv2: Any = None
 _np: Any = None
-_trocr_processor: Any = None
-_trocr_model: Any = None
-_trocr_model_name: Optional[str] = None
+_trocr_cache: Dict[Tuple[str, str], Tuple[Any, Any]] = {}  # Cache by (model_name, device)
 _easyocr_lock = threading.Lock()
 _pytesseract_lock = threading.Lock()
 _cv2_lock = threading.Lock()
@@ -217,7 +215,7 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
     Returns:
         Tuple of (processor, model)
     """
-    global _trocr_processor, _trocr_model, _trocr_model_name
+    global _trocr_cache
     
     # Model names
     model_map = {
@@ -225,28 +223,31 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
         "handwritten": "microsoft/trocr-base-handwritten",
     }
     model_name = model_map.get(model_variant, model_map["printed"])
+    device = 'cuda' if gpu else 'cpu'
+    cache_key = (model_name, device)
     
     with _trocr_lock:
-        # Return cached model if already initialized with same variant
-        if _trocr_processor is not None and _trocr_model is not None and _trocr_model_name == model_name:
-            return _trocr_processor, _trocr_model
+        # Return cached model if already initialized with same variant and device
+        if cache_key in _trocr_cache:
+            return _trocr_cache[cache_key]
         
         try:
             from transformers import TrOCRProcessor, VisionEncoderDecoderModel
             
-            _trocr_processor = TrOCRProcessor.from_pretrained(model_name)
-            _trocr_model = VisionEncoderDecoderModel.from_pretrained(model_name)
+            processor = TrOCRProcessor.from_pretrained(model_name)
+            model = VisionEncoderDecoderModel.from_pretrained(model_name)
             
-            if gpu:
-                _trocr_model = _trocr_model.to('cuda')
+            # Move model to device
+            model = model.to(device)
+            model.eval()
             
-            _trocr_model.eval()
-            _trocr_model_name = model_name
+            # Cache the model and processor
+            _trocr_cache[cache_key] = (processor, model)
             
-        except ImportError:
+        except ImportError as e:
             return None, None
     
-    return _trocr_processor, _trocr_model
+    return _trocr_cache[cache_key]
 
 
 def preprocess_image_for_ocr(image: Image.Image, enhance: bool = True) -> Image.Image:
@@ -387,14 +388,20 @@ def ocr_with_trocr(
     processor, model = _get_trocr(model_variant, gpu=gpu)
     
     if processor is None or model is None:
-        raise ImportError("transformers not installed. Install: pip install transformers")
+        raise ImportError(
+            "TrOCR dependencies are missing or failed to import. "
+            "Ensure that the 'transformers' library and its dependencies such as 'torch' "
+            "are installed (for example: pip install transformers torch)."
+        )
     
     # Ensure RGB
     if image.mode != 'RGB':
         image = image.convert('RGB')
     
-    # Process image
-    device = 'cuda' if gpu else 'cpu'
+    # Get device from model
+    device = next(model.parameters()).device
+    
+    # Process image - processor returns pixel_values
     pixel_values = processor(images=image, return_tensors='pt').pixel_values.to(device)
     
     # Generate text
@@ -549,10 +556,10 @@ def ocr_image(
         lang: Language code(s).
         enhance: Apply preprocessing.
         gpu: Use GPU acceleration for EasyOCR and TrOCR.
-        return_boxes: Return structured data with bounding boxes (EasyOCR only).
+        return_boxes: Return structured data with bounding boxes (EasyOCR) or text-only dict (TrOCR).
 
     Returns:
-        Extracted text (str), or list of dicts with boxes if return_boxes=True.
+        Extracted text (str), or list of dicts with boxes for EasyOCR, or dict with text for TrOCR if return_boxes=True.
     """
     processed = preprocess_image_for_ocr(image, enhance=enhance)
 
@@ -1029,7 +1036,7 @@ Supported OCR engines:
 
     # Warn if --gpu specified with tesseract
     if args.gpu and args.engine == "tesseract":
-        print("Warning: --gpu is only supported with easyocr and trocr engines.", file=sys.stderr)
+        print("Warning: --gpu is only supported with easyocr, trocr, and trocr-handwritten engines.", file=sys.stderr)
 
     # Process inputs
     files = process_inputs(args.inputs)

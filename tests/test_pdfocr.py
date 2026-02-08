@@ -487,7 +487,7 @@ class TestCLI:
                 with patch.object(pdfocr, "ocr_image_file", return_value=None):
                     pdfocr.main()
         captured = capsys.readouterr()
-        assert "--gpu is only supported with easyocr and trocr" in captured.err
+        assert "--gpu is only supported with easyocr, trocr, and trocr-handwritten" in captured.err
 
     def test_cli_trocr_engine_selection(self, sample_png_path: Path, tmp_path: Path):
         """CLI respects trocr engine selection."""
