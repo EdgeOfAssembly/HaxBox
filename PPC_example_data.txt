@@ -1,0 +1,302 @@
+PROGRAM MODULE		acarb01
+
+DATE			29/04/2010
+TIME			21:30:41
+ID NUMBER		1
+COMMENT			test  
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 1
+
+
+This program calculates the aromatic carbon content Ca%
+and aromatic hydrogen content Ha% of gas oils, fuel oils,
+kerosenes and heavy oils, when the density at 15.0 °C and
+average 50% distillation point and aniline point are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the measured density at 15.0 C, in units of grams/cm3.		0.8922
+Give the average T50% distillation point, in units of degrees celsius	274.1
+Give aniline point, in units of degrees celsius				49
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The calculated aromatic carbon content Ca% is:				16.1352%
+The calculated aromatic hydrogen content Ha% is:			5.14634%
+
+---
+
+PROGRAM MODULE		acarb02  
+
+DATE			29/04/2010
+TIME			21:33:14
+ID NUMBER		1
+COMMENT			test  
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 2
+
+This module calculates the content of 
+aromatic carbon, Ca%, naphthenic carbon, Cn%, and paraffinic
+carbon, Cp%, in petroleum products, when density at 15.0 C,
+T50% distillation point and refractive index at 20.0 C are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the measured density at 15.0 C, in units of grams/ml		0.9772
+Give the measured refractive index, at 20.0 C				1.5492
+Give the T50% distillation point, in units of degrees celsius		385
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The calculated refractive dispersion is					176.725
+Aromatic carbon content Ca% is						41.2826 %
+Naphthenic carbon content Cn% is 					32.1829 %
+Paraffinic carbon content Cp% is					26.5345 %
+Number of total rings R is						3.68427
+Number of aromatic rings Ra is						1.85128
+Number of naphthenic rings Rn is					1.833
+Number of total carbons C is						22.7822
+The average molecular mass is						314.951 grams/mol
+
+---
+
+PROGRAM MODULE 		acarb03
+
+DATE			29/04/2010
+TIME			21:34:35
+ID NUMBER		1
+COMMENT			test
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 3
+
+
+This module calculates the number of aromatic carbons in
+the petroleum fraction average molecule, when the average
+molecular mass M, hydrogen Z-deficiency Z (in formula CnH2 * n + z) and
+total carbon number C are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the average molecular mass M					337
+Give the Z-deficiency. OBSERVE: Give a positive (not negative) Z number	8.9
+Give the number of total carbon atoms C, in average molecule		24.1
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The number of aromatic carbon atoms Ca in average molecule is		6.09673
+
+---
+
+PROGRAM MODULE		acarb04
+
+DATE			29/04/2010
+TIME			21:35:40
+ID NUMBER		1
+COMMENT			test  
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 4
+
+This module calculates the aromatic carbon content Ca% of
+petroleum fractions, when density at 15.0 C and kinematic
+viscosity values at two different temperatures are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the measured density at 15.0 C, in units of grams/ml		0.8860
+Give the first measured kinematic viscosity value, in units of cSt	16.1
+Give the corresponding temperature, in units of degrees celsius		50
+Give the second measured kinematic viscosity value, in units of cSt	4.44
+Give the corresponding temperature, in units of degrees celsius		100
+
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+Calculated molecular mass M is						354.914 grams/mol
+Calcukated average carbon number C is					25.5128
+The calculated hydrogen deficiency Z in formula CcH2 * c + z is 	-2.93058
+The calculated aromatic carbon content Ca% = 100 * Ca/C is		9.98464%
+
+---
+
+PROGRAM MODULE		acarb05
+
+DATE			29/04/2010 
+TIME			21:37:08
+ID NUMBER		1
+COMMENT			test  
+
+DESCRIPION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 5
+
+This module calculates the aromatic carbon content of petroleum
+products, when density at 20.0 C, hydrogen content and sulfur content are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the measured density at 20.0 C, in units of grams/ml		1.001
+Givethe hydrogen content, in units of weight-%				10.8
+Give the sulfur content, in units of weight-%				3.2
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The calculated carbon aromaticity is					28.4724%
+The calculated aromatic carbon content, Ca% is				24.2807 weight-%
+
+---
+
+PROGRAM MODULE		acarb06
+
+DATE			29/04/2010
+TIME			21:37:50
+ID NUMBER		1
+COMMENT			test
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 6
+
+This program calculates the aromatic carbon content, Ca% of heavy
+petroleum products, when kinematic viscosity at 40.0 C,
+density at 15.0 C and refractive index at 20.0 C are known.
+The viscosity must be greater than 5.6 cSt. at 40.0 C.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the density at 15.0 C, in units of grams/cm3			1.00585
+Give the kinematic viscosity at 40.0 C, in units of cSt			85.212  
+Give the refractive index at 20.0 C					1.5737
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The calculated aromatic carbon content Ca% is				41.7231 %
+
+---
+
+PROGRAM MODULE		acarb07
+
+DATE			29/04/2010
+TIME			21:38:33
+ID NUMBER		1
+COMMENT			test
+
+DESCRIPTION
+
+AROMATICS CARBON CALCULATIONS
+MODULE 7
+
+This module calculates the aromaticity of heavy oils, pyrolysis
+residue, vacuum residue etc., when density at 20.0 C and the hydrogen and
+carbon contents in weight-% are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the density at 20.0 C, in units grams/cm3				1.0360
+Give the hydrogen content in weight-%					9.10
+Give the carbon content, in weight-%					90.90
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The calculated carbon aromaticity is					54.548 %
+The calculated hydrogen aromaticity is					25.2859 %
+
+---
+
+PROGRAM MODULE		acarb08
+
+DATE			29/04/2010
+TIME			21:39:29
+ID NUMBER		1
+COMMENT			test
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 8
+
+This module calculates the aromatic carbon content of
+marine diesel oil, heavy fuel oil, TCC feeds and other heavy oils,
+when density at 15.0 C and kinematic viscosity at 50.0 C or any other
+temperature between 20.0 C and 100 C is known.
+
+INPUT DATA
+_____________________________________________________________________________________
+Give the density at 15.0 C, in units of kg/m3					947
+Gibr the measured kinematic viscosity, in units of cSt (CentiStokes)		108
+Give the temperature, where viscosity was measured, in units of degrees celsius	50
+
+CALCULATED RESULTS
+_____________________________________________________________________________________
+The calculated aromatic carbon content Ca% is					21.6836 %
+
+---
+
+PROGRAM MODULE		acarb09
+
+DATE			29/04/2010
+TIME			21:40:24
+ID NUMBER		1
+COMMENT			test
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 9
+
+This module calculates the aromatic hydrogen content Ha& of
+petroleum products, when the hydrogen content in weight-% and atomic
+H/C-ratio are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the hydrogen content, in weight-%					13.40
+Give the atomic H/C-ratio						1.851
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The calculated aromatic hydrogen content Ha% is				4.62348%
+
+---
+
+PROGRAM MODULE		acarb10
+
+DATE			29/04/2010
+TIME			21:41:00
+ID NUMBER		1
+COMMENT			test
+
+DESCRIPTION
+
+AROMATIC CARBON CALCULATIONS
+MODULE 10
+
+This module calculates the aromatic carbon content Ca% of petroleum
+fractions, when the hydrogen content weight-% and atomic H/C-ratio
+are known.
+
+INPUT DATA
+_____________________________________________________________________________
+Give the hydrogen content, in weight-%					8.18
+Give the atomic H/C-ratio						0.992
+
+CALCULATED RESULTS
+_____________________________________________________________________________
+The calculated aromatic carbon content Ca% is				66.7907%
+
+---
+
+summary, Excel-ready, or only specific modules).
