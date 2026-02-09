@@ -300,12 +300,19 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
             
             # PaddleOCR 3.0+ uses 'device' instead of deprecated 'use_gpu'
             # Also 'use_textline_orientation' replaces deprecated 'use_angle_cls'
-            return PaddleOCR(
-                use_textline_orientation=True,
-                lang=lang,
-                device='gpu' if gpu else 'cpu',
-                show_log=False
-            )
+            try:
+                return PaddleOCR(
+                    use_textline_orientation=True,
+                    lang=lang,
+                    device='gpu' if gpu else 'cpu',
+                    show_log=False
+                )
+            except TypeError:
+                # PaddleOCR <3.0 doesn't support these parameters
+                raise ImportError(
+                    "PaddleOCR 3.0+ is required. Please upgrade: "
+                    "pip install --upgrade paddleocr paddlepaddle"
+                )
         except ImportError:
             return None
     
@@ -678,7 +685,7 @@ def ocr_with_doctr(
     # Extract just the text from results, preserving horizontal spacing
     text_parts = []
     for page in result.pages:
-        page_height, page_width = img_array.shape[:2]
+        _, page_width = img_array.shape[:2]
         
         for block in page.blocks:
             for line in block.lines:
