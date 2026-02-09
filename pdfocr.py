@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
+import os
+# Disable oneDNN to avoid CPU errors with PaddlePaddle 3.0+
+# See: https://github.com/PaddlePaddle/Paddle/issues/59989
+os.environ['FLAGS_use_mkldnn'] = 'False'
+
 """
 pdfocr - OCR tool for extracting text from PDFs and images.
 
@@ -31,8 +38,6 @@ Dependencies:
 - opencv-python-headless: pip install opencv-python-headless
 - pillow: pip install pillow
 """
-
-from __future__ import annotations
 
 import sys
 import argparse
@@ -296,6 +301,10 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False, text_recognition_batch_s
     
     def _create_paddleocr_instance(lang: str, gpu: bool, text_recognition_batch_size: int = 1) -> Any:
         """Helper to create PaddleOCR instance."""
+        import os
+        # Disable oneDNN to avoid CPU errors
+        os.environ['FLAGS_use_mkldnn'] = 'False'
+        
         try:
             from paddleocr import PaddleOCR
             
@@ -1339,6 +1348,11 @@ Supported OCR engines:
         help="Batch size for PaddleOCR detection and recognition. Higher values may improve speed but increase GPU memory usage.",
     )
     parser.add_argument(
+        "--no-mkldnn",
+        action="store_true",
+        help="Disable Intel oneDNN (MKLDNN) acceleration (fixes some PaddleOCR CPU errors)",
+    )
+    parser.add_argument(
         "-f",
         "--force",
         action="store_true",
@@ -1368,6 +1382,10 @@ Supported OCR engines:
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # Handle --no-mkldnn flag (explicitly disable oneDNN)
+    if args.no_mkldnn:
+        os.environ['FLAGS_use_mkldnn'] = 'False'
 
     # Check if engine is available
     if not check_engine_available(args.engine):

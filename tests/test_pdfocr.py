@@ -1,5 +1,6 @@
 """Comprehensive tests for pdfocr.py - OCR tool for PDFs and images."""
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -793,6 +794,31 @@ class TestCLI:
                     pdfocr.main()
         captured = capsys.readouterr()
         assert "--gpu is only supported with easyocr, trocr, trocr-handwritten, paddleocr, and doctr" in captured.err
+
+    def test_cli_no_mkldnn_flag(self, sample_png_path: Path, tmp_path: Path):
+        """CLI --no-mkldnn flag sets environment variable."""
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "pdfocr",
+                str(sample_png_path),
+                "-e",
+                "paddleocr",
+                "--no-mkldnn",
+                "-d",
+                str(tmp_path),
+                "-q",
+            ],
+        ):
+            with patch.object(pdfocr, "check_engine_available", return_value=True):
+                with patch.object(pdfocr, "ocr_image_file", return_value=None):
+                    # Clear the environment variable first
+                    if 'FLAGS_use_mkldnn' in os.environ:
+                        del os.environ['FLAGS_use_mkldnn']
+                    pdfocr.main()
+                    # Check that the environment variable was set
+                    assert os.environ.get('FLAGS_use_mkldnn') == 'False'
 
     def test_cli_trocr_engine_selection(self, sample_png_path: Path, tmp_path: Path):
         """CLI respects trocr engine selection."""
