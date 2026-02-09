@@ -372,10 +372,11 @@ class TestOcrWithPaddleocr:
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("fallback text", 0.95)]
         ]]
 
-        call_count = [0]
+        call_count = 0
         def mock_get_paddleocr(lang, gpu, det_batch_size, rec_batch_num):
-            call_count[0] += 1
-            if call_count[0] == 1:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
                 # First call with GPU
                 return mock_paddle_gpu
             else:
@@ -386,7 +387,7 @@ class TestOcrWithPaddleocr:
             with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
                 result = pdfocr.ocr_with_paddleocr(img, lang="en", gpu=True, det_batch_size=1, rec_batch_num=1)
                 assert result == "fallback text"
-                assert call_count[0] == 2  # Called twice: GPU then CPU
+                assert call_count == 2  # Called twice: GPU then CPU
 
 
 class TestOcrWithDoctr:

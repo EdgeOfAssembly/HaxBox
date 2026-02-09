@@ -587,50 +587,9 @@ def ocr_with_paddleocr(
     Returns:
         Extracted text (str), or list of dicts with boxes if return_boxes=True
     """
-    # Try with GPU first if requested
-    if gpu:
-        try:
-            paddleocr = _get_paddleocr(lang=lang, gpu=True, det_batch_size=det_batch_size, rec_batch_num=rec_batch_num)
-            if paddleocr is None:
-                raise ImportError(
-                    "PaddleOCR not installed. Install: pip install paddleocr paddlepaddle"
-                )
-            
-            np = _get_numpy()
-            if np is None:
-                raise ImportError("numpy not installed. Install: pip install numpy")
-            
-            # Convert PIL Image to numpy array
-            img_array = np.array(image)
-            
-            # Run PaddleOCR
-            result = paddleocr.predict(img_array)
-            
-        except Exception as e:
-            # Check if it's an OOM error
-            error_msg = str(e).lower()
-            if "out of memory" in error_msg or "resourceexhausted" in error_msg:
-                print(f"Warning: GPU out of memory. Falling back to CPU mode.", file=sys.stderr)
-                # Retry with CPU
-                gpu = False
-                paddleocr = _get_paddleocr(lang=lang, gpu=False, det_batch_size=det_batch_size, rec_batch_num=rec_batch_num)
-                if paddleocr is None:
-                    raise ImportError(
-                        "PaddleOCR not installed. Install: pip install paddleocr paddlepaddle"
-                    )
-                
-                np = _get_numpy()
-                if np is None:
-                    raise ImportError("numpy not installed. Install: pip install numpy")
-                
-                img_array = np.array(image)
-                result = paddleocr.predict(img_array)
-            else:
-                # Not an OOM error, re-raise
-                raise
-    else:
-        # CPU mode from the start
-        paddleocr = _get_paddleocr(lang=lang, gpu=False, det_batch_size=det_batch_size, rec_batch_num=rec_batch_num)
+    # Helper function to run PaddleOCR
+    def _run_paddleocr(use_gpu: bool):
+        paddleocr = _get_paddleocr(lang=lang, gpu=use_gpu, det_batch_size=det_batch_size, rec_batch_num=rec_batch_num)
         if paddleocr is None:
             raise ImportError(
                 "PaddleOCR not installed. Install: pip install paddleocr paddlepaddle"
@@ -644,7 +603,25 @@ def ocr_with_paddleocr(
         img_array = np.array(image)
         
         # Run PaddleOCR
-        result = paddleocr.predict(img_array)
+        return paddleocr.predict(img_array)
+    
+    # Try with GPU first if requested, with automatic CPU fallback on OOM
+    if gpu:
+        try:
+            result = _run_paddleocr(use_gpu=True)
+        except Exception as e:
+            # Check if it's an OOM error
+            error_msg = str(e).lower()
+            if "out of memory" in error_msg or "resourceexhausted" in error_msg:
+                print(f"Warning: GPU out of memory. Falling back to CPU mode.", file=sys.stderr)
+                # Retry with CPU
+                result = _run_paddleocr(use_gpu=False)
+            else:
+                # Not an OOM error, re-raise
+                raise
+    else:
+        # CPU mode from the start
+        result = _run_paddleocr(use_gpu=False)
     
     if result is None or len(result) == 0:
         return [] if return_boxes else ""
