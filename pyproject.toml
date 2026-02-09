@@ -31,6 +31,10 @@ module = [
     "tqdm.*",
     "transformers",
     "transformers.*",
+    "paddleocr",
+    "paddleocr.*",
+    "doctr",
+    "doctr.*",
 ]
 ignore_missing_imports = true
 

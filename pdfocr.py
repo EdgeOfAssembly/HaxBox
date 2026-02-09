@@ -23,6 +23,8 @@ Dependencies:
 - easyocr (higher accuracy engine): pip install easyocr
 - transformers (trocr engine, line-level OCR): pip install transformers torch
   NOTE: TrOCR works best on text lines, not full pages. Use tesseract/easyocr for full pages.
+- paddleocr (state-of-the-art): pip install paddleocr paddlepaddle
+- python-doctr (document-focused): pip install python-doctr[torch]
 - pdf2image: pip install pdf2image
   Also requires poppler: apt install poppler-utils (Ubuntu)
 - opencv-python-headless: pip install opencv-python-headless
@@ -67,11 +69,15 @@ _easyocr_reader_langs: Optional[FrozenSet[str]] = None
 _cv2: Any = None
 _np: Any = None
 _trocr_cache: Dict[Tuple[str, str], Tuple[Any, Any]] = {}  # Cache by (model_name, device)
+_paddleocr: Any = None
+_doctr_model: Any = None
 _easyocr_lock = threading.Lock()
 _pytesseract_lock = threading.Lock()
 _cv2_lock = threading.Lock()
 _numpy_lock = threading.Lock()
 _trocr_lock = threading.Lock()
+_paddleocr_lock = threading.Lock()
+_doctr_lock = threading.Lock()
 
 
 def _get_numpy() -> Any:
@@ -123,6 +129,27 @@ TESSERACT_TO_EASYOCR_LANG = {
     "vie": "vi",
     "tur": "tr",
     "heb": "he",
+}
+
+# Mapping from tesseract language codes to paddleocr language codes
+TESSERACT_TO_PADDLEOCR_LANG = {
+    "eng": "en",
+    "deu": "german",
+    "fra": "french",
+    "spa": "spanish",
+    "ita": "italian",
+    "por": "portuguese",
+    "rus": "ru",
+    "ukr": "ukrainian",
+    "chi_sim": "ch",
+    "chi_tra": "chinese_cht",
+    "jpn": "japan",
+    "kor": "korean",
+    "ara": "ar",
+    "hin": "hi",
+    "tha": "th",
+    "vie": "vi",
+    "tur": "tr",
 }
 
 
@@ -249,6 +276,98 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
             return None, None
     
     return _trocr_cache[cache_key]
+
+
+def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
+    """Lazy import and initialize PaddleOCR (thread-safe).
+    
+    Note: Creates a new instance if language or GPU settings differ from cached one.
+    
+    Args:
+        lang: Language code for PaddleOCR
+        gpu: Whether to use GPU acceleration
+    
+    Returns:
+        PaddleOCR instance or None if not available
+    """
+    global _paddleocr
+    
+    def _create_paddleocr_instance(lang: str, gpu: bool) -> Any:
+        """Helper to create PaddleOCR instance."""
+        try:
+            from paddleocr import PaddleOCR
+            
+            return PaddleOCR(
+                use_angle_cls=True,
+                lang=lang,
+                use_gpu=gpu,
+                show_log=False
+            )
+        except ImportError:
+            return None
+    
+    # We cache by parameters since PaddleOCR initialization is expensive
+    # In practice, most use cases will use the same language throughout
+    cache_key = (lang, gpu)
+    
+    with _paddleocr_lock:
+        # For simplicity, we'll reinitialize if different parameters are requested
+        # In most use cases, parameters remain constant
+        if _paddleocr is None:
+            instance = _create_paddleocr_instance(lang, gpu)
+            if instance is not None:
+                _paddleocr = (instance, cache_key)
+        else:
+            # Check if cached parameters match
+            instance, cached_key = _paddleocr
+            if cached_key != cache_key:
+                # Parameters changed, reinitialize
+                instance = _create_paddleocr_instance(lang, gpu)
+                if instance is not None:
+                    _paddleocr = (instance, cache_key)
+        
+        return _paddleocr[0] if _paddleocr else None
+
+
+def _get_doctr_model(gpu: bool = False) -> Any:
+    """Lazy import and initialize docTR model (thread-safe).
+    
+    Note: Creates a new model if GPU setting differs from cached one.
+    
+    Args:
+        gpu: Whether to use GPU acceleration
+    
+    Returns:
+        docTR predictor or None if not available
+    """
+    global _doctr_model
+    
+    def _create_doctr_model(gpu: bool) -> Any:
+        """Helper to create docTR model."""
+        try:
+            from doctr.models import ocr_predictor
+            
+            device = 'cuda' if gpu else 'cpu'
+            return ocr_predictor(pretrained=True).to(device)
+        except ImportError:
+            return None
+    
+    with _doctr_lock:
+        # We cache by GPU parameter
+        if _doctr_model is None:
+            instance = _create_doctr_model(gpu)
+            if instance is not None:
+                _doctr_model = (instance, gpu)
+        else:
+            # Check if cached GPU setting matches
+            instance, cached_gpu = _doctr_model
+            if cached_gpu != gpu:
+                # GPU setting changed, reinitialize
+                instance = _create_doctr_model(gpu)
+                if instance is not None:
+                    _doctr_model = (instance, gpu)
+        
+        return _doctr_model[0] if _doctr_model else None
 
 
 def preprocess_image_for_ocr(image: Image.Image, enhance: bool = True) -> Image.Image:
@@ -434,6 +553,133 @@ def ocr_with_trocr(
     return text
 
 
+def ocr_with_paddleocr(
+    image: Image.Image,
+    lang: str = "en",
+    gpu: bool = False,
+    return_boxes: bool = False,
+) -> Any:
+    """Perform OCR using PaddleOCR.
+    
+    Args:
+        image: PIL Image to OCR
+        lang: PaddleOCR language code (default: 'en')
+        gpu: Whether to use GPU acceleration
+        return_boxes: If True, return list of dicts with text and bounding boxes
+    
+    Returns:
+        Extracted text (str), or list of dicts with boxes if return_boxes=True
+    """
+    paddleocr = _get_paddleocr(lang=lang, gpu=gpu)
+    if paddleocr is None:
+        raise ImportError(
+            "PaddleOCR not installed. Install: pip install paddleocr paddlepaddle"
+        )
+    
+    np = _get_numpy()
+    if np is None:
+        raise ImportError("numpy not installed. Install: pip install numpy")
+    
+    # Convert PIL Image to numpy array
+    img_array = np.array(image)
+    
+    # Run PaddleOCR
+    result = paddleocr.ocr(img_array, cls=True)
+    
+    if result is None or len(result) == 0:
+        return [] if return_boxes else ""
+    
+    if return_boxes:
+        # Return structured data with bounding boxes
+        structured_results = []
+        for line in result:
+            if line is None:
+                continue
+            for box_info in line:
+                bbox, (text, confidence) = box_info
+                structured_results.append({
+                    "text": text,
+                    "confidence": float(confidence),
+                    "bbox": [[int(p[0]), int(p[1])] for p in bbox],
+                })
+        return structured_results
+    
+    # Extract just the text from results
+    text_parts = []
+    for line in result:
+        if line is None:
+            continue
+        for box_info in line:
+            _, (text, _) = box_info
+            text_parts.append(text)
+    
+    return "\n".join(text_parts)
+
+
+def ocr_with_doctr(
+    image: Image.Image,
+    gpu: bool = False,
+    return_boxes: bool = False,
+) -> Any:
+    """Perform OCR using docTR.
+    
+    Args:
+        image: PIL Image to OCR
+        gpu: Whether to use GPU acceleration
+        return_boxes: If True, return list of dicts with text and bounding boxes
+    
+    Returns:
+        Extracted text (str), or list of dicts with boxes if return_boxes=True
+    """
+    doctr_model = _get_doctr_model(gpu=gpu)
+    if doctr_model is None:
+        raise ImportError(
+            "docTR not installed. Install: pip install python-doctr[torch]"
+        )
+    
+    np = _get_numpy()
+    if np is None:
+        raise ImportError("numpy not installed. Install: pip install numpy")
+    
+    # Convert PIL Image to numpy array
+    img_array = np.array(image)
+    
+    # Run docTR
+    result = doctr_model([img_array])
+    
+    if return_boxes:
+        # Return structured data with bounding boxes
+        structured_results = []
+        for page in result.pages:
+            for block in page.blocks:
+                for line in block.lines:
+                    for word in line.words:
+                        # Get bounding box coordinates
+                        bbox = word.geometry
+                        # docTR returns normalized coordinates [0, 1]
+                        h, w = img_array.shape[:2]
+                        x1, y1 = int(bbox[0][0] * w), int(bbox[0][1] * h)
+                        x2, y2 = int(bbox[1][0] * w), int(bbox[1][1] * h)
+                        
+                        structured_results.append({
+                            "text": word.value,
+                            "confidence": float(word.confidence),
+                            "bbox": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                        })
+        return structured_results
+    
+    # Extract just the text from results
+    text_parts = []
+    for page in result.pages:
+        for block in page.blocks:
+            for line in block.lines:
+                line_text = " ".join([word.value for word in line.words])
+                if line_text:
+                    text_parts.append(line_text)
+    
+    return "\n".join(text_parts)
+
+
 def pdf_to_images(
     pdf_path: Path, dpi: int = 300, pages: Optional[List[int]] = None
 ) -> List[Tuple[int, Image.Image]]:
@@ -571,14 +817,14 @@ def ocr_image(
 
     Args:
         image: PIL Image to OCR.
-        engine: OCR engine ('tesseract', 'easyocr', 'trocr', or 'trocr-handwritten').
+        engine: OCR engine ('tesseract', 'easyocr', 'trocr', 'trocr-handwritten', 'paddleocr', or 'doctr').
         lang: Language code(s).
         enhance: Apply preprocessing.
-        gpu: Use GPU acceleration for EasyOCR and TrOCR.
-        return_boxes: Return structured data with bounding boxes (EasyOCR) or text-only dict (TrOCR).
+        gpu: Use GPU acceleration for EasyOCR, TrOCR, PaddleOCR, and docTR.
+        return_boxes: Return structured data with bounding boxes (EasyOCR, PaddleOCR, docTR) or text-only dict (TrOCR).
 
     Returns:
-        Extracted text (str), or list of dicts with boxes for EasyOCR, or dict with text for TrOCR if return_boxes=True.
+        Extracted text (str), or list of dicts with boxes for EasyOCR/PaddleOCR/docTR, or dict with text for TrOCR if return_boxes=True.
     """
     processed = preprocess_image_for_ocr(image, enhance=enhance)
 
@@ -595,6 +841,12 @@ def ocr_image(
             easyocr_lang = lang[:2] if len(lang) > 2 else lang
         langs = [easyocr_lang] if easyocr_lang else ["en"]
         return ocr_with_easyocr(processed, langs, gpu=gpu, return_boxes=return_boxes)
+    elif engine == "paddleocr":
+        # Convert tesseract lang code to paddleocr using mapping
+        paddleocr_lang = TESSERACT_TO_PADDLEOCR_LANG.get(lang, "en")
+        return ocr_with_paddleocr(processed, paddleocr_lang, gpu=gpu, return_boxes=return_boxes)
+    elif engine == "doctr":
+        return ocr_with_doctr(processed, gpu=gpu, return_boxes=return_boxes)
     else:
         return ocr_with_tesseract(processed, lang)
 
@@ -887,6 +1139,20 @@ def check_engine_available(engine: str) -> bool:
             return True
         except ImportError:
             return False
+    elif engine == "paddleocr":
+        try:
+            import paddleocr  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+    elif engine == "doctr":
+        try:
+            from doctr.models import ocr_predictor  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
     else:  # tesseract
         try:
             import pytesseract
@@ -924,6 +1190,8 @@ Supported OCR engines:
                      NOTE: Best for text lines, not full pages
   trocr-handwritten - Transformer OCR for line-level handwriting (use --gpu)
                      NOTE: Best for text lines, not full pages
+  paddleocr        - State-of-the-art accuracy, medium speed (use --gpu for speed)
+  doctr            - Document-focused OCR, best for complex layouts (use --gpu)
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -936,7 +1204,7 @@ Supported OCR engines:
     parser.add_argument(
         "-e",
         "--engine",
-        choices=["tesseract", "easyocr", "trocr", "trocr-handwritten"],
+        choices=["tesseract", "easyocr", "trocr", "trocr-handwritten", "paddleocr", "doctr"],
         default="tesseract",
         help="OCR engine to use (default: tesseract)",
     )
@@ -982,7 +1250,7 @@ Supported OCR engines:
     parser.add_argument(
         "--gpu",
         action="store_true",
-        help="Use GPU acceleration for EasyOCR and TrOCR (requires CUDA)",
+        help="Use GPU acceleration for EasyOCR, TrOCR, PaddleOCR, and docTR (requires CUDA)",
     )
     parser.add_argument(
         "-f",
@@ -1047,6 +1315,36 @@ Supported OCR engines:
                     file=sys.stderr,
                 )
                 sys.exit(1)
+        elif args.engine == "paddleocr":
+            print(
+                "Error: paddleocr not available. Install: pip install paddleocr paddlepaddle",
+                file=sys.stderr,
+            )
+            if not args.quiet:
+                print("Falling back to tesseract...", file=sys.stderr)
+            args.engine = "tesseract"
+            if not check_engine_available("tesseract"):
+                print("Error: tesseract also not available.", file=sys.stderr)
+                print(
+                    "Install: pip install pytesseract && apt install tesseract-ocr",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        elif args.engine == "doctr":
+            print(
+                "Error: doctr not available. Install: pip install python-doctr[torch]",
+                file=sys.stderr,
+            )
+            if not args.quiet:
+                print("Falling back to tesseract...", file=sys.stderr)
+            args.engine = "tesseract"
+            if not check_engine_available("tesseract"):
+                print("Error: tesseract also not available.", file=sys.stderr)
+                print(
+                    "Install: pip install pytesseract && apt install tesseract-ocr",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
         else:
             print("Error: tesseract not available.", file=sys.stderr)
             print(
@@ -1057,7 +1355,7 @@ Supported OCR engines:
 
     # Warn if --gpu specified with tesseract
     if args.gpu and args.engine == "tesseract":
-        print("Warning: --gpu is only supported with easyocr, trocr, and trocr-handwritten engines.", file=sys.stderr)
+        print("Warning: --gpu is only supported with easyocr, trocr, trocr-handwritten, paddleocr, and doctr engines.", file=sys.stderr)
 
     # Process inputs
     files = process_inputs(args.inputs)
