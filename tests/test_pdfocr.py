@@ -352,9 +352,9 @@ class TestOcrWithPaddleocr:
 
         with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle) as mock_get:
             with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
-                pdfocr.ocr_with_paddleocr(img, lang="en", gpu=False, det_batch_size=2, rec_batch_num=3)
-                # Check that _get_paddleocr was called with correct batch sizes
-                mock_get.assert_called_with(lang="en", gpu=False, det_batch_size=2, rec_batch_num=3)
+                pdfocr.ocr_with_paddleocr(img, lang="en", gpu=False, text_recognition_batch_size=2)
+                # Check that _get_paddleocr was called with correct batch size
+                mock_get.assert_called_with(lang="en", gpu=False, text_recognition_batch_size=2)
 
     def test_oom_fallback_to_cpu(self, sample_png_path: Path):
         """Falls back to CPU when GPU encounters OOM error."""
@@ -373,7 +373,7 @@ class TestOcrWithPaddleocr:
         ]]
 
         call_count = 0
-        def mock_get_paddleocr(lang, gpu, det_batch_size, rec_batch_num):
+        def mock_get_paddleocr(lang, gpu, text_recognition_batch_size):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -385,7 +385,7 @@ class TestOcrWithPaddleocr:
 
         with patch.object(pdfocr, "_get_paddleocr", side_effect=mock_get_paddleocr):
             with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
-                result = pdfocr.ocr_with_paddleocr(img, lang="en", gpu=True, det_batch_size=1, rec_batch_num=1)
+                result = pdfocr.ocr_with_paddleocr(img, lang="en", gpu=True, text_recognition_batch_size=1)
                 assert result == "fallback text"
                 assert call_count == 2  # Called twice: GPU then CPU
 
