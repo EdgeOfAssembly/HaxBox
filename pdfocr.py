@@ -279,7 +279,7 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
     return _trocr_cache[cache_key]
 
 
-def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
+def _get_paddleocr(lang: str = "en", gpu: bool = False, det_batch_size: int = 1, rec_batch_num: int = 1) -> Any:
     """Lazy import and initialize PaddleOCR (thread-safe).
     
     Note: Creates a new instance if language or GPU settings differ from cached one.
@@ -287,13 +287,15 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
     Args:
         lang: Language code for PaddleOCR
         gpu: Whether to use GPU acceleration
+        det_batch_size: Batch size for text detection model (default: 1, minimal GPU memory)
+        rec_batch_num: Batch size for text recognition model (default: 1, minimal GPU memory)
     
     Returns:
         PaddleOCR instance or None if not available
     """
     global _paddleocr
     
-    def _create_paddleocr_instance(lang: str, gpu: bool) -> Any:
+    def _create_paddleocr_instance(lang: str, gpu: bool, det_batch_size: int = 1, rec_batch_num: int = 1) -> Any:
         """Helper to create PaddleOCR instance."""
         try:
             from paddleocr import PaddleOCR
@@ -304,7 +306,9 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
                 return PaddleOCR(
                     use_textline_orientation=True,
                     lang=lang,
-                    device='gpu' if gpu else 'cpu'
+                    device='gpu' if gpu else 'cpu',
+                    det_batch_size=det_batch_size,  # Batch size for detection
+                    rec_batch_num=rec_batch_num,    # Batch size for recognition
                 )
             except TypeError:
                 # PaddleOCR <3.0 doesn't support these parameters
@@ -317,13 +321,13 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
     
     # We cache by parameters since PaddleOCR initialization is expensive
     # In practice, most use cases will use the same language throughout
-    cache_key = (lang, gpu)
+    cache_key = (lang, gpu, det_batch_size, rec_batch_num)
     
     with _paddleocr_lock:
         # For simplicity, we'll reinitialize if different parameters are requested
         # In most use cases, parameters remain constant
         if _paddleocr is None:
-            instance = _create_paddleocr_instance(lang, gpu)
+            instance = _create_paddleocr_instance(lang, gpu, det_batch_size, rec_batch_num)
             if instance is not None:
                 _paddleocr = (instance, cache_key)
         else:
@@ -331,7 +335,7 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
             instance, cached_key = _paddleocr
             if cached_key != cache_key:
                 # Parameters changed, reinitialize
-                instance = _create_paddleocr_instance(lang, gpu)
+                instance = _create_paddleocr_instance(lang, gpu, det_batch_size, rec_batch_num)
                 if instance is not None:
                     _paddleocr = (instance, cache_key)
         
@@ -567,6 +571,8 @@ def ocr_with_paddleocr(
     lang: str = "en",
     gpu: bool = False,
     return_boxes: bool = False,
+    det_batch_size: int = 1,
+    rec_batch_num: int = 1,
 ) -> Any:
     """Perform OCR using PaddleOCR.
     
@@ -575,25 +581,50 @@ def ocr_with_paddleocr(
         lang: PaddleOCR language code (default: 'en')
         gpu: Whether to use GPU acceleration
         return_boxes: If True, return list of dicts with text and bounding boxes
+        det_batch_size: Batch size for text detection model (default: 1, minimal GPU memory)
+        rec_batch_num: Batch size for text recognition model (default: 1, minimal GPU memory)
     
     Returns:
         Extracted text (str), or list of dicts with boxes if return_boxes=True
     """
-    paddleocr = _get_paddleocr(lang=lang, gpu=gpu)
-    if paddleocr is None:
-        raise ImportError(
-            "PaddleOCR not installed. Install: pip install paddleocr paddlepaddle"
-        )
+    # Helper function to run PaddleOCR
+    def _run_paddleocr(use_gpu: bool):
+        paddleocr = _get_paddleocr(lang=lang, gpu=use_gpu, det_batch_size=det_batch_size, rec_batch_num=rec_batch_num)
+        if paddleocr is None:
+            raise ImportError(
+                "PaddleOCR not installed. Install: pip install paddleocr paddlepaddle"
+            )
+        
+        np = _get_numpy()
+        if np is None:
+            raise ImportError("numpy not installed. Install: pip install numpy")
+        
+        # Convert PIL Image to numpy array
+        img_array = np.array(image)
+        
+        # Run PaddleOCR
+        return paddleocr.predict(img_array)
     
-    np = _get_numpy()
-    if np is None:
-        raise ImportError("numpy not installed. Install: pip install numpy")
-    
-    # Convert PIL Image to numpy array
-    img_array = np.array(image)
-    
-    # Run PaddleOCR
-    result = paddleocr.predict(img_array)
+    # Try with GPU first if requested, with automatic CPU fallback on OOM
+    if gpu:
+        try:
+            result = _run_paddleocr(use_gpu=True)
+        except Exception as e:
+            # Check if it's an OOM error
+            # Note: String matching is intentionally broad to catch various OOM scenarios
+            # across different PaddlePaddle versions and configurations
+            error_msg = str(e).lower()
+            if "out of memory" in error_msg or "resourceexhausted" in error_msg:
+                print("Warning: GPU out of memory. Falling back to CPU mode.", file=sys.stderr)
+                # Retry with CPU
+                # Note: Failed GPU instance will be garbage collected automatically
+                result = _run_paddleocr(use_gpu=False)
+            else:
+                # Not an OOM error, re-raise
+                raise
+    else:
+        # CPU mode from the start
+        result = _run_paddleocr(use_gpu=False)
     
     if result is None or len(result) == 0:
         return [] if return_boxes else ""
@@ -854,6 +885,7 @@ def ocr_image(
     enhance: bool = True,
     gpu: bool = False,
     return_boxes: bool = False,
+    batch_size: int = 1,
 ) -> Any:
     """
     OCR a single image.
@@ -865,6 +897,7 @@ def ocr_image(
         enhance: Apply preprocessing.
         gpu: Use GPU acceleration for EasyOCR, TrOCR, PaddleOCR, and docTR.
         return_boxes: Return structured data with bounding boxes (EasyOCR, PaddleOCR, docTR) or text-only dict (TrOCR).
+        batch_size: Batch size for PaddleOCR (default: 1, minimal GPU memory).
 
     Returns:
         Extracted text (str), or list of dicts with boxes for EasyOCR/PaddleOCR/docTR, or dict with text for TrOCR if return_boxes=True.
@@ -887,7 +920,7 @@ def ocr_image(
     elif engine == "paddleocr":
         # Convert tesseract lang code to paddleocr using mapping
         paddleocr_lang = TESSERACT_TO_PADDLEOCR_LANG.get(lang, "en")
-        return ocr_with_paddleocr(processed, paddleocr_lang, gpu=gpu, return_boxes=return_boxes)
+        return ocr_with_paddleocr(processed, paddleocr_lang, gpu=gpu, return_boxes=return_boxes, det_batch_size=batch_size, rec_batch_num=batch_size)
     elif engine == "doctr":
         return ocr_with_doctr(processed, gpu=gpu, return_boxes=return_boxes)
     else:
@@ -907,6 +940,7 @@ def ocr_pdf(
     pages: Optional[List[int]] = None,
     output_format: str = "text",
     gpu: bool = False,
+    batch_size: int = 1,
 ) -> Optional[Path]:
     """
     OCR a PDF file and save the extracted text.
@@ -924,6 +958,7 @@ def ocr_pdf(
         pages: Optional list of 1-indexed page numbers to OCR.
         output_format: Output format ('text' or 'json').
         gpu: Use GPU acceleration for EasyOCR.
+        batch_size: Batch size for PaddleOCR (default: 1, minimal GPU memory).
 
     Returns:
         Path to output text file, or None if failed.
@@ -975,11 +1010,12 @@ def ocr_pdf(
                     enhance=enhance,
                     gpu=gpu,
                     return_boxes=True,
+                    batch_size=batch_size,
                 )
                 all_results.append({"page": page_num, "results": results})
             else:
                 text = ocr_image(
-                    image, engine=engine, lang=lang, enhance=enhance, gpu=gpu
+                    image, engine=engine, lang=lang, enhance=enhance, gpu=gpu, batch_size=batch_size
                 )
                 if output_format == "json":
                     all_results.append({"page": page_num, "text": text})
@@ -1031,6 +1067,7 @@ def ocr_image_file(
     quiet: bool = False,
     output_format: str = "text",
     gpu: bool = False,
+    batch_size: int = 1,
 ) -> Optional[Path]:
     """
     OCR an image file and save the extracted text.
@@ -1045,6 +1082,7 @@ def ocr_image_file(
         quiet: Suppress output.
         output_format: Output format ('text' or 'json').
         gpu: Use GPU acceleration for EasyOCR.
+        batch_size: Batch size for PaddleOCR (default: 1, minimal GPU memory).
 
     Returns:
         Path to output text file, or None if failed.
@@ -1079,6 +1117,7 @@ def ocr_image_file(
                 enhance=enhance,
                 gpu=gpu,
                 return_boxes=True,
+                batch_size=batch_size,
             )
             with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(
@@ -1093,7 +1132,7 @@ def ocr_image_file(
                     ensure_ascii=False,
                 )
         else:
-            text = ocr_image(image, engine=engine, lang=lang, enhance=enhance, gpu=gpu)
+            text = ocr_image(image, engine=engine, lang=lang, enhance=enhance, gpu=gpu, batch_size=batch_size)
             if output_format == "json":
                 with open(output_file, "w", encoding="utf-8") as f:
                     json.dump(
@@ -1296,6 +1335,12 @@ Supported OCR engines:
         help="Use GPU acceleration for EasyOCR, TrOCR, PaddleOCR, and docTR (requires CUDA)",
     )
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=1,
+        help="Batch size for PaddleOCR detection and recognition. Higher values may improve speed but increase GPU memory usage.",
+    )
+    parser.add_argument(
         "-f",
         "--force",
         action="store_true",
@@ -1459,6 +1504,7 @@ Supported OCR engines:
                 pages=pages_to_ocr,
                 output_format=args.format,
                 gpu=args.gpu,
+                batch_size=args.batch_size,
             )
         else:
             result = ocr_image_file(
@@ -1471,6 +1517,7 @@ Supported OCR engines:
                 quiet=args.quiet,
                 output_format=args.format,
                 gpu=args.gpu,
+                batch_size=args.batch_size,
             )
 
         if result:
