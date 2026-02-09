@@ -304,8 +304,7 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
                 return PaddleOCR(
                     use_textline_orientation=True,
                     lang=lang,
-                    device='gpu' if gpu else 'cpu',
-                    show_log=False
+                    device='gpu' if gpu else 'cpu'
                 )
             except TypeError:
                 # PaddleOCR <3.0 doesn't support these parameters
