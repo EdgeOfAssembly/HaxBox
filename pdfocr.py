@@ -611,10 +611,13 @@ def ocr_with_paddleocr(
             result = _run_paddleocr(use_gpu=True)
         except Exception as e:
             # Check if it's an OOM error
+            # Note: String matching is intentionally broad to catch various OOM scenarios
+            # across different PaddlePaddle versions and configurations
             error_msg = str(e).lower()
             if "out of memory" in error_msg or "resourceexhausted" in error_msg:
                 print("Warning: GPU out of memory. Falling back to CPU mode.", file=sys.stderr)
                 # Retry with CPU
+                # Note: Failed GPU instance will be garbage collected automatically
                 result = _run_paddleocr(use_gpu=False)
             else:
                 # Not an OOM error, re-raise
