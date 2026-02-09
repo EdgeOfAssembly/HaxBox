@@ -24,6 +24,7 @@ Dependencies:
 - transformers (trocr engine, line-level OCR): pip install transformers torch
   NOTE: TrOCR works best on text lines, not full pages. Use tesseract/easyocr for full pages.
 - paddleocr (state-of-the-art): pip install paddleocr paddlepaddle
+  NOTE: Requires PaddleOCR 3.0+ which uses device='gpu'/'cpu' parameter
 - python-doctr (document-focused): pip install python-doctr[torch]
 - pdf2image: pip install pdf2image
   Also requires poppler: apt install poppler-utils (Ubuntu)
@@ -297,12 +298,21 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
         try:
             from paddleocr import PaddleOCR
             
-            return PaddleOCR(
-                use_angle_cls=True,
-                lang=lang,
-                use_gpu=gpu,
-                show_log=False
-            )
+            # PaddleOCR 3.0+ uses 'device' instead of deprecated 'use_gpu'
+            # Also 'use_textline_orientation' replaces deprecated 'use_angle_cls'
+            try:
+                return PaddleOCR(
+                    use_textline_orientation=True,
+                    lang=lang,
+                    device='gpu' if gpu else 'cpu',
+                    show_log=False
+                )
+            except TypeError:
+                # PaddleOCR <3.0 doesn't support these parameters
+                raise ImportError(
+                    "PaddleOCR 3.0+ is required. Please upgrade: "
+                    "pip install --upgrade paddleocr paddlepaddle"
+                )
         except ImportError:
             return None
     
@@ -631,6 +641,10 @@ def ocr_with_doctr(
     Returns:
         Extracted text (str), or list of dicts with boxes if return_boxes=True
     """
+    # Constants for horizontal spacing detection
+    WIDE_GAP_THRESHOLD_PIXELS = 30  # Threshold for detecting wide gaps between words
+    PIXELS_PER_SPACE = 10  # Conversion factor for gap pixels to spaces
+    
     doctr_model = _get_doctr_model(gpu=gpu)
     if doctr_model is None:
         raise ImportError(
@@ -668,13 +682,43 @@ def ocr_with_doctr(
                         })
         return structured_results
     
-    # Extract just the text from results
+    # Extract just the text from results, preserving horizontal spacing
     text_parts = []
     for page in result.pages:
+        _, page_width = img_array.shape[:2]
+        
         for block in page.blocks:
             for line in block.lines:
-                line_text = " ".join([word.value for word in line.words])
-                if line_text:
+                if not line.words:
+                    continue
+                
+                # Sort words by horizontal position
+                sorted_words = sorted(line.words, key=lambda w: w.geometry[0][0])
+                
+                line_parts = []
+                prev_end_x = None
+                
+                for word in sorted_words:
+                    # Get word position (normalized 0-1)
+                    word_start_x = word.geometry[0][0]
+                    
+                    if prev_end_x is not None:
+                        # Calculate gap between words in pixels
+                        gap = (word_start_x - prev_end_x) * page_width
+                        
+                        # If gap is large (> ~3 average char widths), add extra spaces
+                        if gap > WIDE_GAP_THRESHOLD_PIXELS:
+                            # Add proportional spaces
+                            num_spaces = max(1, int(gap / PIXELS_PER_SPACE))
+                            line_parts.append(" " * num_spaces)
+                        else:
+                            line_parts.append(" ")
+                    
+                    line_parts.append(word.value)
+                    prev_end_x = word.geometry[1][0]  # End x of current word
+                
+                line_text = "".join(line_parts)
+                if line_text.strip():
                     text_parts.append(line_text)
     
     return "\n".join(text_parts)
