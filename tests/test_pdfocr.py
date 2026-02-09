@@ -316,7 +316,7 @@ class TestOcrWithPaddleocr:
         mock_paddle.ocr.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
         ]]
-        
+
         with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle):
             with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
                 result = pdfocr.ocr_with_paddleocr(img, lang="en", gpu=False)
@@ -331,7 +331,7 @@ class TestOcrWithPaddleocr:
         mock_paddle.ocr.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
         ]]
-        
+
         with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle):
             with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
                 result = pdfocr.ocr_with_paddleocr(img, return_boxes=True)
