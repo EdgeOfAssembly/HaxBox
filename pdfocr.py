@@ -634,6 +634,10 @@ def ocr_with_doctr(
     Returns:
         Extracted text (str), or list of dicts with boxes if return_boxes=True
     """
+    # Constants for horizontal spacing detection
+    WIDE_GAP_THRESHOLD_PIXELS = 30  # Threshold for detecting wide gaps between words
+    PIXELS_PER_SPACE = 10  # Conversion factor for gap pixels to spaces
+    
     doctr_model = _get_doctr_model(gpu=gpu)
     if doctr_model is None:
         raise ImportError(
@@ -696,10 +700,9 @@ def ocr_with_doctr(
                         gap = (word_start_x - prev_end_x) * page_width
                         
                         # If gap is large (> ~3 average char widths), add extra spaces
-                        # Estimate char width as word width / len(word)
-                        if gap > 30:  # ~30 pixels threshold for "wide gap"
-                            # Add proportional spaces (roughly 1 space per 10 pixels)
-                            num_spaces = max(1, int(gap / 10))
+                        if gap > WIDE_GAP_THRESHOLD_PIXELS:
+                            # Add proportional spaces
+                            num_spaces = max(1, int(gap / PIXELS_PER_SPACE))
                             line_parts.append(" " * num_spaces)
                         else:
                             line_parts.append(" ")
