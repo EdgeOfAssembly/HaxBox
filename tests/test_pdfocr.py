@@ -313,7 +313,7 @@ class TestOcrWithPaddleocr:
         img = Image.open(sample_png_path)
         mock_paddle = MagicMock()
         # PaddleOCR returns: [[[bbox], (text, confidence)], ...]
-        mock_paddle.ocr.return_value = [[
+        mock_paddle.predict.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
         ]]
 
@@ -328,7 +328,7 @@ class TestOcrWithPaddleocr:
 
         img = Image.open(sample_png_path)
         mock_paddle = MagicMock()
-        mock_paddle.ocr.return_value = [[
+        mock_paddle.predict.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
         ]]
 

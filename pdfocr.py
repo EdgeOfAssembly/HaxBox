@@ -304,8 +304,7 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
                 return PaddleOCR(
                     use_textline_orientation=True,
                     lang=lang,
-                    device='gpu' if gpu else 'cpu',
-                    show_log=False
+                    device='gpu' if gpu else 'cpu'
                 )
             except TypeError:
                 # PaddleOCR <3.0 doesn't support these parameters
@@ -594,7 +593,7 @@ def ocr_with_paddleocr(
     img_array = np.array(image)
     
     # Run PaddleOCR
-    result = paddleocr.ocr(img_array, cls=True)
+    result = paddleocr.predict(img_array)
     
     if result is None or len(result) == 0:
         return [] if return_boxes else ""
