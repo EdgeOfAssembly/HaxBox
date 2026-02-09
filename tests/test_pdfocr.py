@@ -598,10 +598,9 @@ class TestOcrImage:
         with patch.object(pdfocr, "ocr_with_paddleocr", mock_paddleocr):
             with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
                 pdfocr.ocr_image(img, engine="paddleocr", lang="eng")
-                # Check that paddleocr was called with converted language
+                # Check that paddleocr was called with converted language as positional arg
                 call_args = mock_paddleocr.call_args
-                # The lang is passed as second positional argument
-                assert call_args[0][1] == "en" or call_args.kwargs.get("lang") == "en"
+                assert call_args[0][1] == "en"
 
     def test_doctr_engine(self, sample_png_path: Path):
         """Calls doctr engine when specified."""

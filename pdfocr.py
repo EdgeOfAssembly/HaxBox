@@ -292,6 +292,20 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
     """
     global _paddleocr
     
+    def _create_paddleocr_instance(lang: str, gpu: bool) -> Any:
+        """Helper to create PaddleOCR instance."""
+        try:
+            from paddleocr import PaddleOCR
+            
+            return PaddleOCR(
+                use_angle_cls=True,
+                lang=lang,
+                use_gpu=gpu,
+                show_log=False
+            )
+        except ImportError:
+            return None
+    
     # We cache by parameters since PaddleOCR initialization is expensive
     # In practice, most use cases will use the same language throughout
     cache_key = (lang, gpu)
@@ -300,35 +314,17 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
         # For simplicity, we'll reinitialize if different parameters are requested
         # In most use cases, parameters remain constant
         if _paddleocr is None:
-            try:
-                from paddleocr import PaddleOCR
-                
-                # Initialize PaddleOCR with language and GPU settings
-                _paddleocr = (PaddleOCR(
-                    use_angle_cls=True,
-                    lang=lang,
-                    use_gpu=gpu,
-                    show_log=False
-                ), cache_key)
-            except ImportError:
-                return None
+            instance = _create_paddleocr_instance(lang, gpu)
+            if instance is not None:
+                _paddleocr = (instance, cache_key)
         else:
             # Check if cached parameters match
             instance, cached_key = _paddleocr
             if cached_key != cache_key:
                 # Parameters changed, reinitialize
-                try:
-                    from paddleocr import PaddleOCR
-                    
-                    instance = PaddleOCR(
-                        use_angle_cls=True,
-                        lang=lang,
-                        use_gpu=gpu,
-                        show_log=False
-                    )
+                instance = _create_paddleocr_instance(lang, gpu)
+                if instance is not None:
                     _paddleocr = (instance, cache_key)
-                except ImportError:
-                    return None
         
         return _paddleocr[0] if _paddleocr else None
 
@@ -346,30 +342,30 @@ def _get_doctr_model(gpu: bool = False) -> Any:
     """
     global _doctr_model
     
+    def _create_doctr_model(gpu: bool) -> Any:
+        """Helper to create docTR model."""
+        try:
+            from doctr.models import ocr_predictor
+            
+            device = 'cuda' if gpu else 'cpu'
+            return ocr_predictor(pretrained=True).to(device)
+        except ImportError:
+            return None
+    
     with _doctr_lock:
         # We cache by GPU parameter
         if _doctr_model is None:
-            try:
-                from doctr.models import ocr_predictor
-                
-                # Initialize docTR predictor
-                device = 'cuda' if gpu else 'cpu'
-                _doctr_model = (ocr_predictor(pretrained=True).to(device), gpu)
-            except ImportError:
-                return None
+            instance = _create_doctr_model(gpu)
+            if instance is not None:
+                _doctr_model = (instance, gpu)
         else:
             # Check if cached GPU setting matches
             instance, cached_gpu = _doctr_model
             if cached_gpu != gpu:
                 # GPU setting changed, reinitialize
-                try:
-                    from doctr.models import ocr_predictor
-                    
-                    device = 'cuda' if gpu else 'cpu'
-                    instance = ocr_predictor(pretrained=True).to(device)
+                instance = _create_doctr_model(gpu)
+                if instance is not None:
                     _doctr_model = (instance, gpu)
-                except ImportError:
-                    return None
         
         return _doctr_model[0] if _doctr_model else None
 
