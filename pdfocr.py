@@ -287,7 +287,7 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False, text_recognition_batch_s
     Args:
         lang: Language code for PaddleOCR
         gpu: Whether to use GPU acceleration
-        text_recognition_batch_size: Batch size for text recognition model (default: 1, minimal GPU memory)
+        text_recognition_batch_size: Batch size for text recognition model (default: 1 for minimal memory usage)
     
     Returns:
         PaddleOCR instance or None if not available
@@ -310,7 +310,8 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False, text_recognition_batch_s
                     text_recognition_batch_size=text_recognition_batch_size,
                 )
             except TypeError:
-                # PaddleOCR <3.0 doesn't support these parameters
+                # PaddleOCR <3.0 doesn't accept the 3.0+ parameter names
+                # (e.g., 'device', 'use_textline_orientation', 'text_recognition_batch_size')
                 raise ImportError(
                     "PaddleOCR 3.0+ is required. Please upgrade: "
                     "pip install --upgrade paddleocr paddlepaddle"
@@ -579,7 +580,7 @@ def ocr_with_paddleocr(
         lang: PaddleOCR language code (default: 'en')
         gpu: Whether to use GPU acceleration
         return_boxes: If True, return list of dicts with text and bounding boxes
-        text_recognition_batch_size: Batch size for text recognition model (default: 1, minimal GPU memory)
+        text_recognition_batch_size: Batch size for text recognition model (default: 1 for minimal memory usage)
     
     Returns:
         Extracted text (str), or list of dicts with boxes if return_boxes=True
