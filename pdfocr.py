@@ -281,6 +281,8 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
 def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
     """Lazy import and initialize PaddleOCR (thread-safe).
     
+    Note: Creates a new instance if language or GPU settings differ from cached one.
+    
     Args:
         lang: Language code for PaddleOCR
         gpu: Whether to use GPU acceleration
@@ -290,26 +292,51 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False) -> Any:
     """
     global _paddleocr
     
+    # We cache by parameters since PaddleOCR initialization is expensive
+    # In practice, most use cases will use the same language throughout
+    cache_key = (lang, gpu)
+    
     with _paddleocr_lock:
+        # For simplicity, we'll reinitialize if different parameters are requested
+        # In most use cases, parameters remain constant
         if _paddleocr is None:
             try:
                 from paddleocr import PaddleOCR
                 
                 # Initialize PaddleOCR with language and GPU settings
-                _paddleocr = PaddleOCR(
+                _paddleocr = (PaddleOCR(
                     use_angle_cls=True,
                     lang=lang,
                     use_gpu=gpu,
                     show_log=False
-                )
+                ), cache_key)
             except ImportError:
                 return None
+        else:
+            # Check if cached parameters match
+            instance, cached_key = _paddleocr
+            if cached_key != cache_key:
+                # Parameters changed, reinitialize
+                try:
+                    from paddleocr import PaddleOCR
+                    
+                    instance = PaddleOCR(
+                        use_angle_cls=True,
+                        lang=lang,
+                        use_gpu=gpu,
+                        show_log=False
+                    )
+                    _paddleocr = (instance, cache_key)
+                except ImportError:
+                    return None
         
-        return _paddleocr
+        return _paddleocr[0] if _paddleocr else None
 
 
 def _get_doctr_model(gpu: bool = False) -> Any:
     """Lazy import and initialize docTR model (thread-safe).
+    
+    Note: Creates a new model if GPU setting differs from cached one.
     
     Args:
         gpu: Whether to use GPU acceleration
@@ -320,17 +347,31 @@ def _get_doctr_model(gpu: bool = False) -> Any:
     global _doctr_model
     
     with _doctr_lock:
+        # We cache by GPU parameter
         if _doctr_model is None:
             try:
                 from doctr.models import ocr_predictor
                 
                 # Initialize docTR predictor
                 device = 'cuda' if gpu else 'cpu'
-                _doctr_model = ocr_predictor(pretrained=True).to(device)
+                _doctr_model = (ocr_predictor(pretrained=True).to(device), gpu)
             except ImportError:
                 return None
+        else:
+            # Check if cached GPU setting matches
+            instance, cached_gpu = _doctr_model
+            if cached_gpu != gpu:
+                # GPU setting changed, reinitialize
+                try:
+                    from doctr.models import ocr_predictor
+                    
+                    device = 'cuda' if gpu else 'cpu'
+                    instance = ocr_predictor(pretrained=True).to(device)
+                    _doctr_model = (instance, gpu)
+                except ImportError:
+                    return None
         
-        return _doctr_model
+        return _doctr_model[0] if _doctr_model else None
 
 
 def preprocess_image_for_ocr(image: Image.Image, enhance: bool = True) -> Image.Image:

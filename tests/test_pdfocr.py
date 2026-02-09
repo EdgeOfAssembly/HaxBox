@@ -600,7 +600,8 @@ class TestOcrImage:
                 pdfocr.ocr_image(img, engine="paddleocr", lang="eng")
                 # Check that paddleocr was called with converted language
                 call_args = mock_paddleocr.call_args
-                assert call_args[0][1] == "en"
+                # The lang is passed as second positional argument
+                assert call_args[0][1] == "en" or call_args.kwargs.get("lang") == "en"
 
     def test_doctr_engine(self, sample_png_path: Path):
         """Calls doctr engine when specified."""
