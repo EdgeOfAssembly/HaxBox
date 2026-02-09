@@ -279,7 +279,7 @@ def _get_trocr(model_variant: str = "printed", gpu: bool = False) -> Tuple[Any, 
     return _trocr_cache[cache_key]
 
 
-def _get_paddleocr(lang: str = "en", gpu: bool = False, det_batch_size: int = 1, rec_batch_num: int = 1) -> Any:
+def _get_paddleocr(lang: str = "en", gpu: bool = False, text_recognition_batch_size: int = 1) -> Any:
     """Lazy import and initialize PaddleOCR (thread-safe).
     
     Note: Creates a new instance if language or GPU settings differ from cached one.
@@ -287,28 +287,27 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False, det_batch_size: int = 1,
     Args:
         lang: Language code for PaddleOCR
         gpu: Whether to use GPU acceleration
-        det_batch_size: Batch size for text detection model (default: 1, minimal GPU memory)
-        rec_batch_num: Batch size for text recognition model (default: 1, minimal GPU memory)
+        text_recognition_batch_size: Batch size for text recognition model (default: 1, minimal GPU memory)
     
     Returns:
         PaddleOCR instance or None if not available
     """
     global _paddleocr
     
-    def _create_paddleocr_instance(lang: str, gpu: bool, det_batch_size: int = 1, rec_batch_num: int = 1) -> Any:
+    def _create_paddleocr_instance(lang: str, gpu: bool, text_recognition_batch_size: int = 1) -> Any:
         """Helper to create PaddleOCR instance."""
         try:
             from paddleocr import PaddleOCR
             
             # PaddleOCR 3.0+ uses 'device' instead of deprecated 'use_gpu'
             # Also 'use_textline_orientation' replaces deprecated 'use_angle_cls'
+            # Note: det_batch_size does not exist in PaddleOCR 3.0+
             try:
                 return PaddleOCR(
                     use_textline_orientation=True,
                     lang=lang,
                     device='gpu' if gpu else 'cpu',
-                    det_batch_size=det_batch_size,  # Batch size for detection
-                    rec_batch_num=rec_batch_num,    # Batch size for recognition
+                    text_recognition_batch_size=text_recognition_batch_size,
                 )
             except TypeError:
                 # PaddleOCR <3.0 doesn't support these parameters
@@ -321,13 +320,13 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False, det_batch_size: int = 1,
     
     # We cache by parameters since PaddleOCR initialization is expensive
     # In practice, most use cases will use the same language throughout
-    cache_key = (lang, gpu, det_batch_size, rec_batch_num)
+    cache_key = (lang, gpu, text_recognition_batch_size)
     
     with _paddleocr_lock:
         # For simplicity, we'll reinitialize if different parameters are requested
         # In most use cases, parameters remain constant
         if _paddleocr is None:
-            instance = _create_paddleocr_instance(lang, gpu, det_batch_size, rec_batch_num)
+            instance = _create_paddleocr_instance(lang, gpu, text_recognition_batch_size)
             if instance is not None:
                 _paddleocr = (instance, cache_key)
         else:
@@ -335,7 +334,7 @@ def _get_paddleocr(lang: str = "en", gpu: bool = False, det_batch_size: int = 1,
             instance, cached_key = _paddleocr
             if cached_key != cache_key:
                 # Parameters changed, reinitialize
-                instance = _create_paddleocr_instance(lang, gpu, det_batch_size, rec_batch_num)
+                instance = _create_paddleocr_instance(lang, gpu, text_recognition_batch_size)
                 if instance is not None:
                     _paddleocr = (instance, cache_key)
         
@@ -571,8 +570,7 @@ def ocr_with_paddleocr(
     lang: str = "en",
     gpu: bool = False,
     return_boxes: bool = False,
-    det_batch_size: int = 1,
-    rec_batch_num: int = 1,
+    text_recognition_batch_size: int = 1,
 ) -> Any:
     """Perform OCR using PaddleOCR.
     
@@ -581,15 +579,14 @@ def ocr_with_paddleocr(
         lang: PaddleOCR language code (default: 'en')
         gpu: Whether to use GPU acceleration
         return_boxes: If True, return list of dicts with text and bounding boxes
-        det_batch_size: Batch size for text detection model (default: 1, minimal GPU memory)
-        rec_batch_num: Batch size for text recognition model (default: 1, minimal GPU memory)
+        text_recognition_batch_size: Batch size for text recognition model (default: 1, minimal GPU memory)
     
     Returns:
         Extracted text (str), or list of dicts with boxes if return_boxes=True
     """
     # Helper function to run PaddleOCR
     def _run_paddleocr(use_gpu: bool):
-        paddleocr = _get_paddleocr(lang=lang, gpu=use_gpu, det_batch_size=det_batch_size, rec_batch_num=rec_batch_num)
+        paddleocr = _get_paddleocr(lang=lang, gpu=use_gpu, text_recognition_batch_size=text_recognition_batch_size)
         if paddleocr is None:
             raise ImportError(
                 "PaddleOCR not installed. Install: pip install paddleocr paddlepaddle"
@@ -920,7 +917,7 @@ def ocr_image(
     elif engine == "paddleocr":
         # Convert tesseract lang code to paddleocr using mapping
         paddleocr_lang = TESSERACT_TO_PADDLEOCR_LANG.get(lang, "en")
-        return ocr_with_paddleocr(processed, paddleocr_lang, gpu=gpu, return_boxes=return_boxes, det_batch_size=batch_size, rec_batch_num=batch_size)
+        return ocr_with_paddleocr(processed, paddleocr_lang, gpu=gpu, return_boxes=return_boxes, text_recognition_batch_size=batch_size)
     elif engine == "doctr":
         return ocr_with_doctr(processed, gpu=gpu, return_boxes=return_boxes)
     else:
