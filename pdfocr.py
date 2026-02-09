@@ -613,7 +613,7 @@ def ocr_with_paddleocr(
             # Check if it's an OOM error
             error_msg = str(e).lower()
             if "out of memory" in error_msg or "resourceexhausted" in error_msg:
-                print(f"Warning: GPU out of memory. Falling back to CPU mode.", file=sys.stderr)
+                print("Warning: GPU out of memory. Falling back to CPU mode.", file=sys.stderr)
                 # Retry with CPU
                 result = _run_paddleocr(use_gpu=False)
             else:
@@ -1335,7 +1335,7 @@ Supported OCR engines:
         "--batch-size",
         type=int,
         default=1,
-        help="Batch size for PaddleOCR detection and recognition (default: 1, minimal GPU memory). Higher values may improve speed but increase GPU memory usage.",
+        help="Batch size for PaddleOCR detection and recognition. Higher values may improve speed but increase GPU memory usage.",
     )
     parser.add_argument(
         "-f",
