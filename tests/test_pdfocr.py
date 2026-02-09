@@ -1,5 +1,6 @@
 """Comprehensive tests for pdfocr.py - OCR tool for PDFs and images."""
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -840,6 +841,10 @@ class TestConstants:
         """DPI limits are reasonable."""
         assert pdfocr.MIN_DPI > 0
         assert pdfocr.MAX_DPI > pdfocr.MIN_DPI
+
+    def test_mkldnn_disabled(self):
+        """oneDNN (MKLDNN) is disabled by default to fix PaddlePaddle CPU errors."""
+        assert os.environ.get('FLAGS_use_mkldnn') == 'False'
 
 
 class TestLazyImports:

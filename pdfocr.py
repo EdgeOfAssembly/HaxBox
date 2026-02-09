@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
+import os
+# Disable oneDNN to avoid CPU errors with PaddlePaddle 3.0+
+# See: https://github.com/PaddlePaddle/Paddle/issues/59989
+os.environ['FLAGS_use_mkldnn'] = 'False'
+
 """
 pdfocr - OCR tool for extracting text from PDFs and images.
 
@@ -31,8 +38,6 @@ Dependencies:
 - opencv-python-headless: pip install opencv-python-headless
 - pillow: pip install pillow
 """
-
-from __future__ import annotations
 
 import sys
 import argparse
