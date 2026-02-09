@@ -431,6 +431,51 @@ class TestOcrWithDoctr:
                 assert result[0]["text"] == "test"
                 assert result[0]["confidence"] == 0.95
 
+    def test_wide_horizontal_spacing(self, sample_png_path: Path):
+        """Preserves wide horizontal spacing between words."""
+        from PIL import Image
+
+        # Create a wider test image (1000px) for meaningful gap testing
+        img = Image.new('RGB', (1000, 100), color='white')
+        mock_doctr = MagicMock()
+        
+        # Create mock docTR result structure with wide horizontal gap
+        # Two words: "ABCD" at x=0.1 and "1234" at x=0.6 (wide gap)
+        mock_word1 = MagicMock()
+        mock_word1.value = "ABCD"
+        mock_word1.confidence = 0.95
+        mock_word1.geometry = [[0.1, 0.5], [0.2, 0.6]]  # Start at x=0.1, end at x=0.2
+        
+        mock_word2 = MagicMock()
+        mock_word2.value = "1234"
+        mock_word2.confidence = 0.95
+        mock_word2.geometry = [[0.6, 0.5], [0.7, 0.6]]  # Start at x=0.6 (gap of 0.4)
+        
+        mock_line = MagicMock()
+        mock_line.words = [mock_word1, mock_word2]
+        
+        mock_block = MagicMock()
+        mock_block.lines = [mock_line]
+        
+        mock_page = MagicMock()
+        mock_page.blocks = [mock_block]
+        
+        mock_result = MagicMock()
+        mock_result.pages = [mock_page]
+        
+        mock_doctr.return_value = mock_result
+        
+        with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
+            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+                result = pdfocr.ocr_with_doctr(img, gpu=False)
+                # With a 1000 pixel wide image, gap would be (0.6 - 0.2) * 1000 = 400 pixels
+                # Should result in multiple spaces (roughly 40 spaces: 400 / 10)
+                assert "ABCD" in result
+                assert "1234" in result
+                # Verify we have many spaces between words (at least 30)
+                spaces_between = result.split("ABCD")[1].split("1234")[0]
+                assert len(spaces_between) >= 30, f"Expected at least 30 spaces, got {len(spaces_between)}"
+
 
 class TestCheckEngineAvailable:
     """Tests for check_engine_available function."""
