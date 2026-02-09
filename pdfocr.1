@@ -10,8 +10,8 @@ pdfocr \- OCR tool for extracting text from PDFs and images
 .B pdfocr
 is a command-line tool for extracting text from scanned PDFs and images using
 Optical Character Recognition (OCR). It supports multiple OCR engines
-(tesseract and easyocr), image preprocessing for better accuracy, batch
-processing, and various output formats.
+(tesseract, easyocr, trocr, trocr-handwritten, paddleocr, and doctr), image 
+preprocessing for better accuracy, batch processing, and various output formats.
 .PP
 Input can be PDF files, image files (PNG, JPG, JPEG, TIFF, BMP, WebP), or
 directories (batch mode). When a directory is specified, all supported files
@@ -41,11 +41,23 @@ OCR engine to use. Options:
 .IP \(bu 2
 .B easyocr
 - Better quality, slower, pure Python
+.IP \(bu 2
+.B trocr
+- Transformer-based OCR for printed text (best for text lines)
+.IP \(bu 2
+.B trocr-handwritten
+- Transformer-based OCR for handwritten text (best for text lines)
+.IP \(bu 2
+.B paddleocr
+- State-of-the-art accuracy, medium speed
+.IP \(bu 2
+.B doctr
+- Document-focused OCR, best for complex layouts
 .RE
 .TP
 .BR \-\-gpu
-Use GPU acceleration for EasyOCR. Requires CUDA and PyTorch with GPU support.
-Only effective with \fB\-e easyocr\fR.
+Use GPU acceleration for EasyOCR, TrOCR, PaddleOCR, and docTR. Requires CUDA 
+and PyTorch with GPU support.
 .SS "Language"
 .TP
 .BR \-l " " \fILANG\fR ", " \-\-lang " " \fILANG\fR
@@ -105,6 +117,15 @@ OCR a PDF with tesseract:
 .TP
 Use EasyOCR for better quality:
 .B pdfocr scanned.pdf -e easyocr
+.TP
+Use TrOCR for transformer-based OCR:
+.B pdfocr scanned.pdf -e trocr --gpu
+.TP
+Use PaddleOCR for state-of-the-art accuracy:
+.B pdfocr scanned.pdf -e paddleocr --gpu
+.TP
+Use docTR for document-focused OCR:
+.B pdfocr scanned.pdf -e doctr --gpu
 .TP
 OCR an image:
 .B pdfocr document.png
@@ -222,6 +243,18 @@ tesseract-ocr, poppler-utils (for pdf2image)
 .TP
 Python packages:
 easyocr, numpy, opencv-python-headless
+.SS "For trocr engines"
+.TP
+Python packages:
+transformers, torch
+.SS "For paddleocr engine"
+.TP
+Python packages:
+paddleocr, paddlepaddle
+.SS "For doctr engine"
+.TP
+Python packages:
+python-doctr[torch]
 .SS "For GPU acceleration"
 .TP
 Python packages:

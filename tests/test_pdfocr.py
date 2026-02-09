@@ -283,6 +283,155 @@ class TestOcrWithTrocr:
             assert result["bbox"] is None
 
 
+class TestOcrWithPaddleocr:
+    """Tests for ocr_with_paddleocr function."""
+
+    def test_requires_paddleocr(self, sample_png_path: Path):
+        """Raises ImportError when paddleocr not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        with patch.object(pdfocr, "_get_paddleocr", return_value=None):
+            with pytest.raises(ImportError, match="paddleocr"):
+                pdfocr.ocr_with_paddleocr(img)
+
+    def test_requires_numpy(self, sample_png_path: Path):
+        """Raises ImportError when numpy not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddle = MagicMock()
+        with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle):
+            with patch.object(pdfocr, "_get_numpy", return_value=None):
+                with pytest.raises(ImportError, match="numpy"):
+                    pdfocr.ocr_with_paddleocr(img)
+
+    def test_text_extraction(self, sample_png_path: Path):
+        """Extracts text using PaddleOCR."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddle = MagicMock()
+        # PaddleOCR returns: [[[bbox], (text, confidence)], ...]
+        mock_paddle.ocr.return_value = [[
+            [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
+        ]]
+        
+        with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle):
+            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+                result = pdfocr.ocr_with_paddleocr(img, lang="en", gpu=False)
+                assert result == "test text"
+
+    def test_return_boxes(self, sample_png_path: Path):
+        """Returns structured data when return_boxes=True."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddle = MagicMock()
+        mock_paddle.ocr.return_value = [[
+            [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
+        ]]
+        
+        with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle):
+            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+                result = pdfocr.ocr_with_paddleocr(img, return_boxes=True)
+                assert isinstance(result, list)
+                assert len(result) == 1
+                assert result[0]["text"] == "test text"
+                assert result[0]["confidence"] == 0.95
+
+
+class TestOcrWithDoctr:
+    """Tests for ocr_with_doctr function."""
+
+    def test_requires_doctr(self, sample_png_path: Path):
+        """Raises ImportError when doctr not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        with patch.object(pdfocr, "_get_doctr_model", return_value=None):
+            with pytest.raises(ImportError, match="docTR"):
+                pdfocr.ocr_with_doctr(img)
+
+    def test_requires_numpy(self, sample_png_path: Path):
+        """Raises ImportError when numpy not available."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_doctr = MagicMock()
+        with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
+            with patch.object(pdfocr, "_get_numpy", return_value=None):
+                with pytest.raises(ImportError, match="numpy"):
+                    pdfocr.ocr_with_doctr(img)
+
+    def test_text_extraction(self, sample_png_path: Path):
+        """Extracts text using docTR."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_doctr = MagicMock()
+        
+        # Create mock docTR result structure
+        mock_word = MagicMock()
+        mock_word.value = "test"
+        mock_word.confidence = 0.95
+        mock_word.geometry = [[0, 0], [1, 1]]
+        
+        mock_line = MagicMock()
+        mock_line.words = [mock_word]
+        
+        mock_block = MagicMock()
+        mock_block.lines = [mock_line]
+        
+        mock_page = MagicMock()
+        mock_page.blocks = [mock_block]
+        
+        mock_result = MagicMock()
+        mock_result.pages = [mock_page]
+        
+        mock_doctr.return_value = mock_result
+        
+        with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
+            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+                result = pdfocr.ocr_with_doctr(img, gpu=False)
+                assert result == "test"
+
+    def test_return_boxes(self, sample_png_path: Path):
+        """Returns structured data when return_boxes=True."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_doctr = MagicMock()
+        
+        # Create mock docTR result structure
+        mock_word = MagicMock()
+        mock_word.value = "test"
+        mock_word.confidence = 0.95
+        mock_word.geometry = [[0, 0], [1, 1]]
+        
+        mock_line = MagicMock()
+        mock_line.words = [mock_word]
+        
+        mock_block = MagicMock()
+        mock_block.lines = [mock_line]
+        
+        mock_page = MagicMock()
+        mock_page.blocks = [mock_block]
+        
+        mock_result = MagicMock()
+        mock_result.pages = [mock_page]
+        
+        mock_doctr.return_value = mock_result
+        
+        with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
+            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+                result = pdfocr.ocr_with_doctr(img, return_boxes=True)
+                assert isinstance(result, list)
+                assert len(result) == 1
+                assert result[0]["text"] == "test"
+                assert result[0]["confidence"] == 0.95
+
+
 class TestCheckEngineAvailable:
     """Tests for check_engine_available function."""
 
@@ -324,6 +473,26 @@ class TestCheckEngineAvailable:
             result = pdfocr.check_engine_available("trocr-handwritten")
             assert result is False
 
+    def test_paddleocr_not_available(self):
+        """Returns False when paddleocr not available."""
+        # Mock import failure
+        def mock_import(*args, **kwargs):
+            raise ImportError("No module named 'paddleocr'")
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = pdfocr.check_engine_available("paddleocr")
+            assert result is False
+
+    def test_doctr_not_available(self):
+        """Returns False when doctr not available."""
+        # Mock import failure
+        def mock_import(*args, **kwargs):
+            raise ImportError("No module named 'doctr'")
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = pdfocr.check_engine_available("doctr")
+            assert result is False
+
 
 class TestLanguageMapping:
     """Tests for language code mapping."""
@@ -334,6 +503,13 @@ class TestLanguageMapping:
         assert pdfocr.TESSERACT_TO_EASYOCR_LANG["deu"] == "de"
         assert pdfocr.TESSERACT_TO_EASYOCR_LANG["fra"] == "fr"
         assert pdfocr.TESSERACT_TO_EASYOCR_LANG["chi_sim"] == "ch_sim"
+    
+    def test_tesseract_to_paddleocr_mapping(self):
+        """PaddleOCR language mapping contains expected entries."""
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["eng"] == "en"
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["deu"] == "german"
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["fra"] == "french"
+        assert pdfocr.TESSERACT_TO_PADDLEOCR_LANG["chi_sim"] == "ch"
 
 
 class TestOcrImage:
@@ -401,6 +577,41 @@ class TestOcrImage:
                 # Check that handwritten variant was used
                 call_args = mock_trocr.call_args
                 assert call_args[1]["model_variant"] == "handwritten"
+
+    def test_paddleocr_engine(self, sample_png_path: Path):
+        """Calls paddleocr engine when specified."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddleocr = MagicMock(return_value="test text")
+        with patch.object(pdfocr, "ocr_with_paddleocr", mock_paddleocr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="paddleocr")
+                mock_paddleocr.assert_called_once()
+
+    def test_language_conversion_for_paddleocr(self, sample_png_path: Path):
+        """Converts tesseract lang code to paddleocr."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_paddleocr = MagicMock(return_value="test")
+        with patch.object(pdfocr, "ocr_with_paddleocr", mock_paddleocr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="paddleocr", lang="eng")
+                # Check that paddleocr was called with converted language
+                call_args = mock_paddleocr.call_args
+                assert call_args[0][1] == "en"
+
+    def test_doctr_engine(self, sample_png_path: Path):
+        """Calls doctr engine when specified."""
+        from PIL import Image
+
+        img = Image.open(sample_png_path)
+        mock_doctr = MagicMock(return_value="test text")
+        with patch.object(pdfocr, "ocr_with_doctr", mock_doctr):
+            with patch.object(pdfocr, "preprocess_image_for_ocr", return_value=img):
+                pdfocr.ocr_image(img, engine="doctr")
+                mock_doctr.assert_called_once()
 
 
 class TestCLI:
@@ -487,7 +698,7 @@ class TestCLI:
                 with patch.object(pdfocr, "ocr_image_file", return_value=None):
                     pdfocr.main()
         captured = capsys.readouterr()
-        assert "--gpu is only supported with easyocr, trocr, and trocr-handwritten" in captured.err
+        assert "--gpu is only supported with easyocr, trocr, trocr-handwritten, paddleocr, and doctr" in captured.err
 
     def test_cli_trocr_engine_selection(self, sample_png_path: Path, tmp_path: Path):
         """CLI respects trocr engine selection."""

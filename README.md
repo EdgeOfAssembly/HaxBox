@@ -37,7 +37,10 @@ pip install pypdf pymupdf pillow tqdm numpy
 
 # For pdfocr
 pip install pytesseract pdf2image opencv-python-headless
-pip install easyocr  # Optional, better quality OCR
+pip install easyocr  # Optional, higher accuracy
+pip install transformers torch  # Optional, TrOCR transformer-based OCR
+pip install paddleocr paddlepaddle  # Optional, state-of-the-art OCR
+pip install python-doctr[torch]  # Optional, document-focused OCR
 
 # For screenrec
 pip install opencv-python-headless mss pynput
@@ -104,6 +107,18 @@ pdfocr scanned.pdf
 # Use EasyOCR engine (better quality)
 pdfocr scanned.pdf -e easyocr
 
+# Use TrOCR engine (transformer-based, good for printed text)
+pdfocr scanned.pdf -e trocr --gpu
+
+# Use TrOCR for handwritten text
+pdfocr notes.pdf -e trocr-handwritten --gpu
+
+# Use PaddleOCR (state-of-the-art accuracy)
+pdfocr scanned.pdf -e paddleocr --gpu
+
+# Use docTR (document-focused OCR)
+pdfocr scanned.pdf -e doctr --gpu
+
 # OCR specific pages
 pdfocr scanned.pdf -p 1-5
 
@@ -113,7 +128,7 @@ pdfocr document.pdf -l deu  # German
 # JSON output with bounding boxes
 pdfocr scanned.pdf --format json
 
-# GPU acceleration (EasyOCR)
+# GPU acceleration (EasyOCR, TrOCR, PaddleOCR, docTR)
 pdfocr scanned.pdf -e easyocr --gpu
 ```
 
@@ -121,12 +136,23 @@ pdfocr scanned.pdf -e easyocr --gpu
 
 | Option | Description |
 |--------|-------------|
-| `-e, --engine` | OCR engine: tesseract or easyocr |
+| `-e, --engine` | OCR engine: tesseract, easyocr, trocr, trocr-handwritten, paddleocr, doctr |
 | `-l, --lang` | Language code (eng, deu, fra, etc.) |
 | `-p, --pages` | Page specification for PDFs |
 | `--dpi` | DPI for PDF rendering (default: 300) |
 | `--format` | Output format: text or json |
-| `--gpu` | Use GPU acceleration (EasyOCR) |
+| `--gpu` | Use GPU acceleration (EasyOCR, TrOCR, PaddleOCR, docTR) |
+
+### OCR Engines
+
+| Engine | Speed | Accuracy | GPU | Best For |
+|--------|-------|----------|-----|----------|
+| tesseract | Fast | Good | No | General use, default |
+| easyocr | Medium | Better | Yes | Multiple languages |
+| trocr | Slow | Best | Yes | Printed text |
+| trocr-handwritten | Slow | Best | Yes | Handwritten text |
+| paddleocr | Medium | Best | Yes | State-of-the-art accuracy |
+| doctr | Medium | Best | Yes | Document layouts |
 
 ---
 
