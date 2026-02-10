@@ -91,6 +91,10 @@ def main() -> None:
         # (will fail later with helpful error message)
         default_engine = "tesseract"
     
+    # Always show all engine choices in help text, not just installed ones
+    # This helps users discover what engines are supported
+    engine_choices = all_engine_choices
+    
     # Build help text showing which engines are installed
     if installed_engines:
         installed_list = ", ".join(installed_engines)
@@ -158,7 +162,7 @@ Examples:
     parser.add_argument(
         "-e",
         "--engine",
-        choices=all_engine_choices,
+        choices=engine_choices,
         default=default_engine,
         help=engine_help,
     )

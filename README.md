@@ -197,6 +197,58 @@ print(f"Estimated {result['est_char_count']} characters")
 
 **See also:** `TODO.md` for comprehensive redaction recovery methods
 
+### Testing OCR Engines
+
+The repository includes a testing script that compares all installed OCR engines against ground truth data and ranks them by accuracy. This helps you choose the best engine for your needs.
+
+```bash
+# Run OCR engine comparison test
+python test_ocr_engines.py
+
+# With verbose output
+python test_ocr_engines.py --verbose
+
+# With GPU acceleration
+python test_ocr_engines.py --gpu
+```
+
+The script uses the provided test data (`PPC_example_data.txt` ground truth and `PPC_example_data_pages_001-010.pdf`) to:
+- Test all installed OCR engines (except TrOCR, which is for single-line OCR only)
+- Compute accuracy metrics (character-level, word-level, and sequence similarity)
+- Rank engines from highest to lowest accuracy
+- Display results in an easy-to-read table
+
+**Example output:**
+```
+================================================================================
+OCR ENGINE COMPARISON RESULTS
+================================================================================
+
+--------------------------------------------------------------------------------
+Rank   Engine          Char Acc %   Word Acc %   Similarity %
+--------------------------------------------------------------------------------
+1      paddleocr       77.94        82.92        85.91       
+2      tesseract       0.60         6.15         24.09       
+
+================================================================================
+```
+
+**Note:** TrOCR is not tested because it is designed for single-line OCR only, not full-page document OCR.
+
+**To install all OCR engines for comprehensive testing:**
+
+```bash
+# Install all OCR engines
+pip install pytesseract pdf2image opencv-python-headless
+pip install easyocr
+pip install transformers torch
+pip install 'paddleocr<3.0' 'paddlepaddle<3.0'
+pip install python-doctr[torch]
+
+# Install system dependencies
+sudo apt install tesseract-ocr poppler-utils
+```
+
 ---
 
 ## stegpng
