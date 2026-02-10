@@ -203,14 +203,28 @@ Examples:
                         )
                     else:
                         try:
-                            # Need to get total pages to parse the spec
+                            # Get total page count from PDF
                             info = pdfinfo_from_path(str(file_path))
                             total_pages = info.get("Pages", 0)
-                            if total_pages > 0:
+                            
+                            if total_pages <= 0:
+                                print(
+                                    f"Warning: Could not determine page count for {file_path.name}. Processing all pages.",
+                                    file=sys.stderr,
+                                )
+                            else:
+                                # Parse page specification
                                 pages_to_process = parse_page_spec(args.pages, total_pages)
                         except ValueError as e:
+                            # Invalid page specification format
                             print(f"Error: Invalid page specification: {e}", file=sys.stderr)
                             continue
+                        except Exception as e:
+                            # Error reading PDF info (corrupted file, permissions, etc.)
+                            print(
+                                f"Warning: Could not read PDF info for {file_path.name}: {e}. Processing all pages.",
+                                file=sys.stderr,
+                            )
 
                 ocr_pdf(
                     file_path,
