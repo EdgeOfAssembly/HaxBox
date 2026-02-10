@@ -77,3 +77,6 @@ llm_prep/
 # Temporary files
 *.tmp
 *.temp
+
+# Validation output
+paddleocr_validation_output.txt
