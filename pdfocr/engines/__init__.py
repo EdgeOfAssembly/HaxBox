@@ -38,8 +38,17 @@ from pdfocr.engines.base import OCREngine, get_registry
 from pdfocr.engines import tesseract  # noqa: F401
 from pdfocr.engines import easyocr  # noqa: F401
 from pdfocr.engines import trocr  # noqa: F401
-from pdfocr.engines import paddleocr  # noqa: F401
-from pdfocr.engines import doctr  # noqa: F401
+
+# Import optional engines if they exist
+try:
+    from pdfocr.engines import paddleocr  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from pdfocr.engines import doctr  # noqa: F401
+except ImportError:
+    pass
 
 # ============================================================================
 # PUBLIC API
