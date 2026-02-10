@@ -220,10 +220,6 @@ def _get_trocr(
             # Return (None, None) to signal import failure
             # Caller (__init__) will raise ImportError with installation instructions
             return (None, None)
-    
-    # This line is technically unreachable (return inside lock), but included
-    # for type checking and clarity. All paths return from inside the lock.
-    return _trocr_cache.get(cache_key, (None, None))
 
 
 # ============================================================================
