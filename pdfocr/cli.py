@@ -15,7 +15,7 @@ from typing import List, Optional
 
 from pdfocr.types import __version__, DEFAULT_OUTPUT_DIR
 from pdfocr.engines import get_engine, available_engines
-from pdfocr.core import ocr_pdf, ocr_image_file, check_engine_available
+from pdfocr.core import ocr_pdf, ocr_image_file
 from pdfocr.utils import process_inputs
 
 
