@@ -243,33 +243,6 @@ def _get_doctr_model(gpu: bool = False) -> Any:
     return None  # pragma: no cover
 
 
-def _create_doctr_model(gpu: bool) -> Any:
-    """Helper to create docTR model (deprecated, use _get_doctr_model).
-    
-    This function exists for backward compatibility with the original
-    pdfocr.py code structure. It's a thin wrapper around model creation
-    logic that's now integrated into _get_doctr_model().
-    
-    Args:
-        gpu: Whether to use GPU acceleration.
-        
-    Returns:
-        docTR ocr_predictor instance or None if not available.
-    """
-    try:
-        # Import doctr library
-        from doctr.models import ocr_predictor
-        
-        # Determine device string
-        device = 'cuda' if gpu else 'cpu'
-        
-        # Create and return predictor
-        return ocr_predictor(pretrained=True).to(device)
-    except ImportError:
-        # doctr not installed
-        return None
-
-
 # ============================================================================
 # DOCTR ENGINE IMPLEMENTATION
 # ============================================================================
