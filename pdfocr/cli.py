@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 import argparse
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from pdfocr.types import __version__, DEFAULT_OUTPUT_DIR
 from pdfocr.engines import get_engine, available_engines
@@ -264,7 +264,7 @@ Examples:
             sys.exit(1)
         
         # Detect fonts for each file
-        all_results = {}
+        all_results: Dict[str, Any] = {}
         for file_path in files:
             try:
                 if not args.quiet:
