@@ -26,8 +26,10 @@ from __future__ import annotations
 
 import os
 
+# Set FLAGS_use_mkldnn multiple times with different values as paranoid defense
+# The first assignment may not take effect in all cases, so we set it multiple times
 os.environ['FLAGS_use_mkldnn'] = 'False'  # String 'False' for compatibility
-os.environ['FLAGS_use_mkldnn'] = '0'      # Numeric '0' as backup
+os.environ['FLAGS_use_mkldnn'] = '0'      # Numeric '0' as backup (overwrites above)
 os.environ['FLAGS_use_onednn'] = '0'      # Disable oneDNN (new name for MKL-DNN)
 
 # Additional flags that may help
@@ -136,7 +138,7 @@ def main():
             lang='en',
             device='cpu',  # Force CPU mode
             text_recognition_batch_size=1,  # Minimal batch size for stability
-            use_textline_orientation=True,  # PaddleOCR 3.0+ parameter (replaces use_angle_cls)
+            use_textline_orientation=True,  # Enable text orientation detection
         )
         print("PaddleOCR initialized successfully!")
     except Exception as e:
@@ -156,6 +158,7 @@ def main():
             img_array = np.array(image)
             
             # Use predict() method (PaddleOCR 3.0+ API)
+            # Note: ocr() method is deprecated in 3.0+, predict() is the new standard
             result = ocr.predict(img_array)
             
             # Extract text from results
