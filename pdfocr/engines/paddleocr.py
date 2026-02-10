@@ -4,14 +4,27 @@
 This is a ground-up rewrite of the PaddleOCR integration to address persistent
 bugs that have required five separate bug-fix PRs (#9, #11, #12, #13, #14).
 
-CRITICAL WORKAROUNDS:
+VERSION SUPPORT:
+    Currently using PaddleOCR 2.x (< 3.0) only for CPU and GPU support.
+    
+    PaddleOCR 3.x has a CPU execution bug (GitHub issue PaddlePaddle/Paddle#59989).
+    This implementation is 2.x-only and does NOT support 3.x at this time.
+    
+    When PaddlePaddle fixes the bug and 3.x support is desired:
+    - Update requirements.txt to remove the <3.0 constraint
+    - Implement version detection (check paddleocr.__version__)
+    - Add conditional logic to use 2.x API (use_gpu, ocr()) vs 3.x API (device, predict())
+    - The validation script already supports both versions for testing
+
+CRITICAL WORKAROUNDS (for future 3.x support):
     1. ENV VAR FIX (GitHub issue PaddlePaddle/Paddle#59989):
        PaddlePaddle 3.0+ has PIR CPU execution bugs that cause crashes.
        We set FLAGS_use_mkldnn and FLAGS_use_onednn to '0' BEFORE imports.
+       (This workaround alone does NOT fix the bug, but will be needed when fixed)
        
     2. API COMPATIBILITY:
        PaddleOCR 3.0+ changed parameter names (device vs use_gpu, predict vs ocr).
-       We only support 3.0+ to avoid maintaining legacy compatibility.
+       Code is ready to support both 2.x and 3.x APIs with version detection.
        
     3. GPU OOM FALLBACK:
        GPU operations may fail with "out of memory" or "ResourceExhausted".
@@ -30,10 +43,10 @@ Features:
     - Configurable batch size for memory optimization
 
 Installation:
-    pip install paddleocr paddlepaddle
+    pip install 'paddleocr<3.0' 'paddlepaddle<3.0'
     
     For GPU support:
-        pip install paddlepaddle-gpu
+        pip install 'paddleocr<3.0' 'paddlepaddle-gpu<3.0'
         
 Usage Example:
     ```python
@@ -64,11 +77,12 @@ Limitations:
     - Requires ~500MB-2GB disk space for language models
     - Initial startup is slow (model download/loading)
     - GPU mode requires sufficient VRAM (varies by batch size)
-    - PaddlePaddle 3.0+ is required (older versions not supported)
+    - PaddleOCR 2.x is currently used (3.x ready when CPU bug is fixed)
 
 References:
     - PaddleOCR GitHub: https://github.com/PaddlePaddle/PaddleOCR
-    - PaddlePaddle Issue #59989: PIR CPU execution crash bug
+    - PaddlePaddle Issue #59989: PIR CPU execution crash bug (3.x only)
+    - Validation results: See PADDLEOCR_CPU_VALIDATION.md
     - Previous bug-fix PRs: #9, #11, #12, #13, #14
 """
 
@@ -187,16 +201,15 @@ def _create_paddleocr_instance(
         
     Raises:
         ImportError: If paddleocr is not installed, or if the installed
-                    version is too old (< 3.0) and doesn't support the
-                    new parameter names.
+                    version is incompatible (needs 2.x currently).
         RuntimeError: If PaddleOCR initialization fails for other reasons.
         
     Notes:
-        - Only supports PaddleOCR 3.0+
-        - Uses 'device' parameter (not deprecated 'use_gpu')
-        - Uses 'use_textline_orientation' (not deprecated 'use_angle_cls')
-        - Uses 'text_recognition_batch_size' (not deprecated 'rec_batch_num')
-        - Does NOT use show_log, det_batch_size, or cls parameters
+        - Currently supports PaddleOCR 2.x (< 3.0)
+        - Uses 'use_gpu' parameter (2.x API)
+        - Uses 'use_angle_cls' for text angle classification (2.x API)
+        - Uses 'rec_batch_num' for batch size (2.x API)
+        - Will upgrade to 3.x API when PaddlePaddle fixes CPU bug (#59989)
     """
     try:
         from paddleocr import PaddleOCR
@@ -207,24 +220,28 @@ def _create_paddleocr_instance(
         )
     
     try:
-        # PaddleOCR 3.0+ API:
+        # PaddleOCR 2.x API (current):
+        # - use_gpu=True/False for GPU selection
+        # - use_angle_cls=True for text angle classification
+        # - rec_batch_num=N for batch size
+        # 
+        # PaddleOCR 3.x API (future, when CPU bug is fixed):
         # - device='gpu'/'cpu' replaces use_gpu=True/False
         # - use_textline_orientation=True replaces use_angle_cls=True
         # - text_recognition_batch_size=N replaces rec_batch_num=N
         # - NO show_log parameter (removed in 3.0+)
         # - NO det_batch_size parameter (removed in 3.0+)
-        # - NO cls parameter (not needed with use_textline_orientation)
         return PaddleOCR(
-            device='gpu' if gpu else 'cpu',
-            use_textline_orientation=True,  # Enable text orientation detection
+            use_gpu=gpu,                  # GPU/CPU selection (2.x parameter)
+            use_angle_cls=True,           # Text angle classification (2.x parameter)
             lang=lang,
-            text_recognition_batch_size=batch_size,
+            rec_batch_num=batch_size,     # Batch size (2.x parameter)
         )
     except TypeError as e:
-        # If we get TypeError on the 3.0+ parameters, the user has an old version
+        # If we get TypeError, wrong API parameters
         raise ImportError(
-            f"PaddleOCR 3.0+ is required but an older version is installed. "
-            f"Upgrade with: pip install --upgrade paddleocr paddlepaddle\n"
+            f"PaddleOCR 2.x is required. Install with: "
+            f"pip install 'paddleocr<3.0' 'paddlepaddle<3.0'\n"
             f"Original error: {e}"
         )
 
@@ -464,7 +481,8 @@ class PaddleOCREngine(OCREngine):
                     gpu=True,
                     batch_size=self.batch_size,
                 )
-                return paddleocr.predict(img_array)
+                # PaddleOCR 2.x uses ocr() method with cls parameter
+                return paddleocr.ocr(img_array, cls=True)
             except Exception as e:
                 # Check if it's an OOM error
                 # Use case-insensitive matching to catch all variants:
@@ -488,7 +506,8 @@ class PaddleOCREngine(OCREngine):
                         gpu=False,
                         batch_size=self.batch_size,
                     )
-                    return paddleocr.predict(img_array)
+                    # PaddleOCR 2.x uses ocr() method with cls parameter
+                    return paddleocr.ocr(img_array, cls=True)
                 else:
                     # Not an OOM error, re-raise
                     raise
@@ -499,7 +518,8 @@ class PaddleOCREngine(OCREngine):
                 gpu=False,
                 batch_size=self.batch_size,
             )
-            return paddleocr.predict(img_array)
+            # PaddleOCR 2.x uses ocr() method with cls parameter
+            return paddleocr.ocr(img_array, cls=True)
     
     def _format_results_with_boxes(
         self,
