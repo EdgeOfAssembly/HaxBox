@@ -39,7 +39,7 @@ pip install pypdf pymupdf pillow tqdm numpy
 pip install pytesseract pdf2image opencv-python-headless
 pip install easyocr  # Optional, higher accuracy
 pip install transformers torch  # Optional, TrOCR transformer-based OCR
-pip install paddleocr paddlepaddle  # Optional, state-of-the-art OCR
+pip install paddleocr paddlepaddle  # Optional, GPU-only (CPU mode broken in 3.0+)
 pip install python-doctr[torch]  # Optional, document-focused OCR
 
 # For screenrec
@@ -151,7 +151,7 @@ pdfocr scanned.pdf -e easyocr --gpu
 | easyocr | Medium | Better | Yes | Multiple languages |
 | trocr | Slow | Best | Yes | Printed text |
 | trocr-handwritten | Slow | Best | Yes | Handwritten text |
-| paddleocr | Medium | Best | Yes | State-of-the-art accuracy |
+| paddleocr | Medium | Best | Yes* | State-of-the-art accuracy (*GPU only; CPU broken in 3.0+) |
 | doctr | Medium | Best | Yes | Document layouts |
 
 ---
