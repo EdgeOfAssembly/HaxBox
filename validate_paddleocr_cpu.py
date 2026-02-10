@@ -30,6 +30,11 @@ os.environ['FLAGS_use_mkldnn'] = 'False'  # String 'False' for compatibility
 os.environ['FLAGS_use_mkldnn'] = '0'      # Numeric '0' as backup
 os.environ['FLAGS_use_onednn'] = '0'      # Disable oneDNN (new name for MKL-DNN)
 
+# Additional flags that may help
+os.environ['PADDLE_USE_ONEDNN'] = '0'     # Alternative OneDNN flag
+os.environ['FLAGS_use_cudnn'] = '0'       # Disable CUDNN on CPU
+os.environ['CPU_NUM'] = '1'               # Limit CPU threads
+
 # ============================================================================
 # NOW SAFE TO IMPORT OTHER MODULES
 # ============================================================================
@@ -128,11 +133,10 @@ def main():
     try:
         # Use PaddleOCR 3.0+ API with CPU device
         ocr = PaddleOCR(
-            use_angle_cls=True,
             lang='en',
             device='cpu',  # Force CPU mode
             text_recognition_batch_size=1,  # Minimal batch size for stability
-            use_textline_orientation=True,
+            use_textline_orientation=True,  # PaddleOCR 3.0+ parameter (replaces use_angle_cls)
         )
         print("PaddleOCR initialized successfully!")
     except Exception as e:
