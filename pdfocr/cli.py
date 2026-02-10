@@ -204,6 +204,7 @@ Examples:
                     else:
                         try:
                             # Get total page count from PDF
+                            # Note: pdfinfo_from_path returns dict with "Pages" key (capital P)
                             info = pdfinfo_from_path(str(file_path))
                             total_pages = info.get("Pages", 0)
                             
