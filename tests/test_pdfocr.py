@@ -1227,7 +1227,6 @@ class TestFontDetection:
             with pytest.raises(ValueError, match="Unsupported file type"):
                 pdfocr.detect_fonts(temp_path)
         finally:
-            import os
             os.unlink(temp_path)
 
     @patch("pdfocr.font_detect.HAS_PYMUPDF", False)
@@ -1244,7 +1243,6 @@ class TestFontDetection:
             with pytest.raises(ImportError, match="PyMuPDF or pdfminer.six"):
                 pdfocr.detect_fonts_native(temp_path)
         finally:
-            import os
             os.unlink(temp_path)
 
     @patch("pdfocr.font_detect.HAS_PYTESSERACT", False)

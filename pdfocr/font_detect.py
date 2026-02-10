@@ -64,7 +64,7 @@ except ImportError:
 # Try to import pdfminer (optional, fallback for native PDF extraction)
 try:
     from pdfminer.high_level import extract_pages
-    from pdfminer.layout import LTTextBox, LTTextLine, LTChar, LTPage
+    from pdfminer.layout import LTChar
     HAS_PDFMINER = True
 except ImportError:
     HAS_PDFMINER = False
@@ -222,18 +222,76 @@ def _detect_fonts_pdfminer(pdf_path: Path) -> List[Dict[str, Any]]:
             # Recursively extract characters from page
             chars = _extract_chars_from_layout(page_layout)
             
+            # Group consecutive characters with the same font/style into spans
+            spans: List[Dict[str, Any]] = []
+            current_span: Optional[Dict[str, Any]] = None
+            
             for char_data in chars:
-                text = char_data["text"].strip()
-                if not text:
+                char_text = char_data.get("text", "")
+                
+                if current_span is None:
+                    # Start a new span
+                    current_span = {
+                        "text": char_text,
+                        "font_name": char_data.get("font_name"),
+                        "font_size_pt": char_data.get("font_size_pt"),
+                        "bbox": list(char_data.get("bbox", [])),
+                        "bold": char_data.get("bold"),
+                        "italic": char_data.get("italic"),
+                    }
+                    continue
+                
+                same_style = (
+                    char_data.get("font_name") == current_span.get("font_name")
+                    and char_data.get("font_size_pt") == current_span.get("font_size_pt")
+                    and char_data.get("bold") == current_span.get("bold")
+                    and char_data.get("italic") == current_span.get("italic")
+                )
+                
+                if same_style:
+                    # Extend current span text and bbox
+                    current_span["text"] += char_text
+                    bbox = current_span.get("bbox") or []
+                    char_bbox = char_data.get("bbox") or []
+                    if len(bbox) == 4 and len(char_bbox) == 4:
+                        x0, y0, x1, y1 = bbox
+                        cx0, cy0, cx1, cy1 = char_bbox
+                        current_span["bbox"] = [
+                            min(x0, cx0),
+                            min(y0, cy0),
+                            max(x1, cx1),
+                            max(y1, cy1),
+                        ]
+                else:
+                    # Finish the current span and start a new one
+                    spans.append(current_span)
+                    current_span = {
+                        "text": char_text,
+                        "font_name": char_data.get("font_name"),
+                        "font_size_pt": char_data.get("font_size_pt"),
+                        "bbox": list(char_data.get("bbox", [])),
+                        "bold": char_data.get("bold"),
+                        "italic": char_data.get("italic"),
+                    }
+            
+            # Flush the last span, if any
+            if current_span is not None:
+                spans.append(current_span)
+            
+            # Add non-empty spans to results, preserving internal whitespace
+            for span in spans:
+                text = span.get("text", "")
+                if not text or not text.strip():
+                    # Skip spans that are entirely whitespace or empty
                     continue
                 
                 results.append({
                     "text": text,
-                    "font_name": char_data["font_name"],
-                    "font_size_pt": char_data["font_size_pt"],
-                    "bbox": char_data["bbox"],
-                    "bold": char_data["bold"],
-                    "italic": char_data["italic"],
+                    "font_name": span.get("font_name"),
+                    "font_size_pt": span.get("font_size_pt"),
+                    "bbox": tuple(span.get("bbox")) if span.get("bbox") else (0, 0, 0, 0),
+                    "bold": span.get("bold"),
+                    "italic": span.get("italic"),
                     "page": page_num,
                 })
                 
@@ -393,9 +451,15 @@ def _extract_font_metrics_from_image(
         top = data["top"][i]
         width = data["width"][i]
         height = data["height"][i]
-        conf = data["conf"][i]
+        raw_conf = data["conf"][i]
         
-        # Skip low-confidence detections
+        # Skip low-confidence or invalid detections
+        # pytesseract returns confidence as strings; "" or "-1" mean invalid
+        try:
+            conf = float(raw_conf)
+        except (TypeError, ValueError):
+            continue
+        
         if conf < 0:
             continue
         
@@ -536,6 +600,7 @@ def _pdf_has_text_layer(pdf_path: Path) -> bool:
                     return True
                     
         except Exception:
+            # Silently skip pages that fail to parse (corrupted, unsupported features, etc.)
             pass
     
     # If we can't check, assume scanned (safer default)
@@ -600,19 +665,23 @@ def estimate_redacted_chars(
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
     
+    # Run OCR once and reuse the results to avoid duplicate image_to_data calls
+    # in downstream helper functions.
+    ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    
     # Extract redaction dimensions
     redaction_left, redaction_top, redaction_width, redaction_height = redaction_bbox
     
     # If reference text boxes not provided, detect nearby text automatically
     if reference_text_bboxes is None:
         reference_text_bboxes = _find_nearby_text(
-            image, redaction_bbox, dpi, search_radius_px=200
+            image, redaction_bbox, dpi, search_radius_px=200, ocr_data=ocr_data
         )
     
     # Measure average character width from reference text
     if reference_text_bboxes:
         avg_char_width_px, est_font_size_pt = _measure_avg_char_width(
-            image, reference_text_bboxes, dpi
+            image, reference_text_bboxes, dpi, ocr_data=ocr_data
         )
         confidence = "high"
     else:
@@ -654,6 +723,7 @@ def _find_nearby_text(
     redaction_bbox: Tuple[int, int, int, int],
     dpi: int,
     search_radius_px: int = 200,
+    ocr_data: Optional[Dict[str, Any]] = None,
 ) -> List[Tuple[int, int, int, int]]:
     """Find text bounding boxes near a redaction box.
     
@@ -662,6 +732,7 @@ def _find_nearby_text(
         redaction_bbox: Redaction bounding box (left, top, width, height).
         dpi: DPI of the image.
         search_radius_px: Search radius in pixels around redaction.
+        ocr_data: Optional pre-computed OCR data to reuse.
         
     Returns:
         List of text bounding boxes (left, top, width, height).
@@ -670,8 +741,10 @@ def _find_nearby_text(
     redaction_center_x = redaction_left + redaction_width // 2
     redaction_center_y = redaction_top + redaction_height // 2
     
-    # Get all text with OCR
-    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    # Get all text with OCR (reuse if provided)
+    if ocr_data is None:
+        ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    data = ocr_data
     
     nearby_boxes = []
     n_boxes = len(data["text"])
@@ -681,8 +754,17 @@ def _find_nearby_text(
         if not text:
             continue
         
-        # Skip low-confidence detections
-        conf = data["conf"][i]
+        # Skip low-confidence or invalid detections
+        raw_conf = data["conf"][i]
+        # pytesseract returns confidence values as strings; "" or "-1" mean invalid
+        if raw_conf in ("", "-1"):
+            continue
+        try:
+            conf = float(raw_conf)
+        except (TypeError, ValueError):
+            # If confidence cannot be parsed, treat as invalid
+            continue
+        
         if conf < 60:
             continue
         
@@ -744,6 +826,7 @@ def _measure_avg_char_width(
     image: Image.Image,
     text_bboxes: List[Tuple[int, int, int, int]],
     dpi: int,
+    ocr_data: Optional[Dict[str, Any]] = None,
 ) -> Tuple[float, float]:
     """Measure average character width from text bounding boxes.
     
@@ -751,6 +834,7 @@ def _measure_avg_char_width(
         image: PIL Image.
         text_bboxes: List of text bounding boxes (left, top, width, height).
         dpi: DPI of the image.
+        ocr_data: Optional pre-computed OCR data to reuse.
         
     Returns:
         Tuple of (average character width in pixels, estimated font size in points).
@@ -760,8 +844,10 @@ def _measure_avg_char_width(
     total_height = 0.0
     total_boxes = 0
     
-    # Get text content for each box to count characters
-    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    # Get text content for each box to count characters (reuse if provided)
+    if ocr_data is None:
+        ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    data = ocr_data
     
     for bbox in text_bboxes:
         left, top, width, height = bbox

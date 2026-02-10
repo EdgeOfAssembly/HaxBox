@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 import argparse
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 
 from pdfocr.types import __version__, DEFAULT_OUTPUT_DIR
 from pdfocr.engines import get_engine, available_engines
