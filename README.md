@@ -40,7 +40,9 @@ pip install pypdf pymupdf pillow tqdm numpy
 pip install pytesseract pdf2image opencv-python-headless
 pip install easyocr  # Optional, higher accuracy
 pip install transformers torch  # Optional, TrOCR transformer-based OCR
-pip install paddlepaddle<3.0 && pip install paddleocr<3.0  # Optional, state-of-the-art OCR (v2.x; v3.x ready when CPU bug fixed)
+# Optional, state-of-the-art OCR (v2.x; v3.x ready when CPU bug fixed)
+pip install paddlepaddle<3.0
+pip install paddleocr<3.0
 pip install python-doctr[torch]  # Optional, document-focused OCR
 
 # For screenrec
@@ -206,7 +208,8 @@ Rank   Engine          Char Acc %   Word Acc %   Similarity %
 pip install pytesseract pdf2image opencv-python-headless
 pip install easyocr
 pip install transformers torch
-pip install paddlepaddle<3.0 && pip install paddleocr<3.0
+pip install paddlepaddle<3.0
+pip install paddleocr<3.0
 pip install python-doctr[torch]
 
 # Install system dependencies

@@ -25,7 +25,6 @@ from typing import Dict, List, Tuple
 import difflib
 
 # Set PaddleOCR environment variables before imports
-os.environ['FLAGS_use_mkldnn'] = 'False'
 os.environ['FLAGS_use_mkldnn'] = '0'
 os.environ['FLAGS_use_onednn'] = '0'
 
@@ -116,8 +115,10 @@ def test_engine(
         verbose: Whether to print verbose output.
         
     Returns:
-        Tuple of (engine_name, accuracy_metrics, error_message).
-        If successful, error_message is empty string.
+        Tuple of (engine_name, empty_dict, ocr_text_or_error).
+        - If successful, returns (engine_name, {}, ocr_text)
+        - If failed, returns (engine_name, {}, error_message)
+        The caller is responsible for computing accuracy metrics from ocr_text.
     """
     if verbose:
         print(f"\n{'='*60}")
