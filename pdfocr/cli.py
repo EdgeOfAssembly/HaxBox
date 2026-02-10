@@ -60,7 +60,13 @@ def main() -> None:
     engine_choices = compatible_choices if compatible_choices else all_engine_choices
     
     # Show warning if PaddleOCR is not available due to Python version
-    if paddleocr_unsupported and not any("-q" in arg or "--quiet" in arg for arg in sys.argv):
+    # Check for quiet flag in a more robust way (handles -q, --quiet, and combined flags like -qv)
+    is_quiet = any(
+        arg == "-q" or arg == "--quiet" or (arg.startswith("-") and "q" in arg and not arg.startswith("--"))
+        for arg in sys.argv
+    )
+    
+    if paddleocr_unsupported and not is_quiet:
         print(
             f"Warning: PaddleOCR is not available on Python {sys.version_info.major}.{sys.version_info.minor}.",
             file=sys.stderr
