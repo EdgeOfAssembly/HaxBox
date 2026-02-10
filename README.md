@@ -161,6 +161,42 @@ pdfocr scanned.pdf -e easyocr --gpu
 - **v3.x (future):** Code ready, waiting for PaddlePaddle CPU bug fix ([#59989](https://github.com/PaddlePaddle/Paddle/issues/59989))
 - See `PADDLEOCR_CPU_VALIDATION.md` for detailed validation results
 
+### Font Detection
+
+Extract font information from PDFs and images for redaction analysis.
+
+```bash
+# Detect fonts in a PDF (outputs JSON)
+pdfocr --detect-fonts document.pdf
+
+# Detect fonts in multiple files
+pdfocr --detect-fonts document.pdf scan.png
+
+# Specify DPI for scanned images
+pdfocr --detect-fonts scan.pdf --dpi 600
+```
+
+**Output includes:**
+- **Native PDFs:** Font name, size (pt), text content, bounding boxes, bold/italic flags
+- **Scanned PDFs/Images:** Estimated font size (pt), character metrics (height, width), OCR confidence
+
+**Python API:**
+```python
+from pdfocr import detect_fonts, estimate_redacted_chars
+from PIL import Image
+
+# Auto-detect and extract fonts
+fonts = detect_fonts("document.pdf")
+
+# Estimate characters under redaction
+img = Image.open("redacted_email.png")
+redaction_bbox = (100, 200, 300, 20)  # left, top, width, height
+result = estimate_redacted_chars(img, redaction_bbox)
+print(f"Estimated {result['est_char_count']} characters")
+```
+
+**See also:** `TODO.md` for comprehensive redaction recovery methods
+
 ---
 
 ## stegpng

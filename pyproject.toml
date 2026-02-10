@@ -35,6 +35,8 @@ module = [
     "paddleocr.*",
     "doctr",
     "doctr.*",
+    "pdfminer",
+    "pdfminer.*",
 ]
 ignore_missing_imports = true
 

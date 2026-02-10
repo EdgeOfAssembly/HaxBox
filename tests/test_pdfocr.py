@@ -1188,3 +1188,77 @@ class TestPropertyBased:
     def test_validate_dpi_in_range(self, dpi: int):
         """Property: valid DPI passes through unchanged."""
         assert pdfocr.validate_dpi(dpi) == dpi
+
+
+class TestFontDetection:
+    """Tests for font detection module."""
+
+    def test_font_detect_functions_exported(self):
+        """Font detection functions are exported from pdfocr."""
+        assert hasattr(pdfocr, "detect_fonts")
+        assert hasattr(pdfocr, "detect_fonts_native")
+        assert hasattr(pdfocr, "detect_fonts_scanned")
+        assert hasattr(pdfocr, "estimate_redacted_chars")
+
+    def test_detect_fonts_native_missing_file(self):
+        """detect_fonts_native raises FileNotFoundError for missing file."""
+        with pytest.raises(FileNotFoundError):
+            pdfocr.detect_fonts_native("nonexistent.pdf")
+
+    def test_detect_fonts_scanned_missing_file(self):
+        """detect_fonts_scanned raises FileNotFoundError for missing file."""
+        with pytest.raises(FileNotFoundError):
+            pdfocr.detect_fonts_scanned("nonexistent.png")
+
+    def test_detect_fonts_missing_file(self):
+        """detect_fonts raises FileNotFoundError for missing file."""
+        with pytest.raises(FileNotFoundError):
+            pdfocr.detect_fonts("nonexistent.pdf")
+
+    def test_detect_fonts_unsupported_format(self):
+        """detect_fonts raises ValueError for unsupported file format."""
+        # Create a temporary file with unsupported extension
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".xyz", delete=False) as f:
+            f.write(b"test")
+            temp_path = f.name
+        
+        try:
+            with pytest.raises(ValueError, match="Unsupported file type"):
+                pdfocr.detect_fonts(temp_path)
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    @patch("pdfocr.font_detect.HAS_PYMUPDF", False)
+    @patch("pdfocr.font_detect.HAS_PDFMINER", False)
+    def test_detect_fonts_native_no_libraries(self):
+        """detect_fonts_native raises ImportError when libraries missing."""
+        # Create a temporary PDF file
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            f.write(b"%PDF-1.4\n")
+            temp_path = f.name
+        
+        try:
+            with pytest.raises(ImportError, match="PyMuPDF or pdfminer.six"):
+                pdfocr.detect_fonts_native(temp_path)
+        finally:
+            import os
+            os.unlink(temp_path)
+
+    @patch("pdfocr.font_detect.HAS_PYTESSERACT", False)
+    def test_detect_fonts_scanned_no_pytesseract(self):
+        """detect_fonts_scanned raises ImportError when pytesseract missing."""
+        with pytest.raises(ImportError, match="pytesseract"):
+            pdfocr.detect_fonts_scanned("test.png")
+
+    @patch("pdfocr.font_detect.HAS_PYTESSERACT", False)
+    def test_estimate_redacted_chars_no_pytesseract(self):
+        """estimate_redacted_chars raises ImportError when pytesseract missing."""
+        from PIL import Image
+        img = Image.new("RGB", (100, 100), color="white")
+        redaction_bbox = (10, 10, 50, 20)
+        
+        with pytest.raises(ImportError, match="pytesseract"):
+            pdfocr.estimate_redacted_chars(img, redaction_bbox)

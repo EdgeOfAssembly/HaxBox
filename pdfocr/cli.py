@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 import argparse
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from pdfocr.types import __version__, DEFAULT_OUTPUT_DIR
 from pdfocr.engines import get_engine, available_engines
@@ -73,26 +73,30 @@ def main() -> None:
     # Show warning if on Python 3.13+ to explain why paddleocr isn't available
     paddleocr_unsupported = sys.version_info >= (3, 13)
     
-    # Filter out engines based on lightweight availability check
+    # Check which engines are actually installed
     # This avoids importing heavy dependencies during --help
-    compatible_choices = [
+    installed_engines = [
         e for e in all_engine_choices 
         if _is_engine_available_lightweight(e)
     ]
     
     # Determine the default engine dynamically
     # Prefer tesseract if available, otherwise use first available engine
-    if "tesseract" in compatible_choices:
+    if "tesseract" in installed_engines:
         default_engine = "tesseract"
-    elif compatible_choices:
-        default_engine = compatible_choices[0]
+    elif installed_engines:
+        default_engine = installed_engines[0]
     else:
         # No engines available, fall back to tesseract as default
         # (will fail later with helpful error message)
         default_engine = "tesseract"
     
-    # If no compatible choices, fall back to all choices (argparse will show the list)
-    engine_choices = compatible_choices if compatible_choices else all_engine_choices
+    # Build help text showing which engines are installed
+    if installed_engines:
+        installed_list = ", ".join(installed_engines)
+        engine_help = f"OCR engine to use (default: {default_engine}). Installed: {installed_list}"
+    else:
+        engine_help = f"OCR engine to use (default: {default_engine}). No engines detected - please install at least one."
     
     # Show warning if PaddleOCR is not available due to Python version
     # Check for quiet flag in a more robust way (handles -q, --quiet, and combined flags like -qv)
@@ -154,9 +158,9 @@ Examples:
     parser.add_argument(
         "-e",
         "--engine",
-        choices=engine_choices,
+        choices=all_engine_choices,
         default=default_engine,
-        help=f"OCR engine to use (default: {default_engine})",
+        help=engine_help,
     )
 
     parser.add_argument(
@@ -239,7 +243,50 @@ Examples:
         version=f"pdfocr {__version__}",
     )
 
+    parser.add_argument(
+        "--detect-fonts",
+        action="store_true",
+        help="Detect font types and sizes from input files (output as JSON)",
+    )
+
     args = parser.parse_args()
+
+    # Handle font detection mode
+    if args.detect_fonts:
+        import json
+        from pdfocr.font_detect import detect_fonts
+        
+        # Process inputs
+        try:
+            files = process_inputs(args.inputs)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        
+        if not files:
+            print("Error: No files to process", file=sys.stderr)
+            sys.exit(1)
+        
+        # Detect fonts for each file
+        all_results: Dict[str, Any] = {}
+        for file_path in files:
+            try:
+                if not args.quiet:
+                    print(f"Detecting fonts in {file_path}...", file=sys.stderr)
+                
+                results = detect_fonts(file_path, dpi=args.dpi)
+                all_results[str(file_path)] = results
+                
+            except Exception as e:
+                print(f"Error detecting fonts in {file_path}: {e}", file=sys.stderr)
+                if not args.quiet:
+                    import traceback
+                    traceback.print_exc()
+                all_results[str(file_path)] = {"error": str(e)}
+        
+        # Output results as JSON
+        print(json.dumps(all_results, indent=2))
+        return
 
     # Handle TrOCR variants
     model_variant: Optional[str] = None
