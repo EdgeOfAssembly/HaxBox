@@ -131,25 +131,51 @@ def main():
         sys.exit(1)
     
     # Initialize PaddleOCR in CPU mode
-    print("\n[3/4] Initializing PaddleOCR 3.0+ in CPU mode...")
+    print("\n[3/4] Initializing PaddleOCR in CPU mode...")
     try:
-        # Use PaddleOCR 3.0+ API with CPU device
-        ocr = PaddleOCR(
-            lang='en',
-            device='cpu',  # Force CPU mode
-            text_recognition_batch_size=1,  # Minimal batch size for stability
-            use_textline_orientation=True,  # Enable text orientation detection
-        )
+        # Import paddleocr to check version
+        import paddleocr
+        version = paddleocr.__version__
+        print(f"PaddleOCR version: {version}")
+        
+        # Parse version to determine API
+        major_version = int(version.split('.')[0])
+        is_v3_plus = major_version >= 3
+        
+        if is_v3_plus:
+            print("Using PaddleOCR 3.0+ API...")
+            # PaddleOCR 3.0+ uses device parameter
+            ocr = PaddleOCR(
+                lang='en',
+                device='cpu',  # Force CPU mode
+                text_recognition_batch_size=1,  # Minimal batch size for stability
+                use_textline_orientation=True,  # Enable text orientation detection
+            )
+        else:
+            print("Using PaddleOCR 2.x API...")
+            # PaddleOCR 2.x uses use_gpu parameter
+            ocr = PaddleOCR(
+                lang='en',
+                use_gpu=False,  # Disable GPU (CPU mode)
+                use_angle_cls=True,  # Enable text angle classification
+                rec_batch_num=1,  # Minimal batch size for stability
+            )
+        
         print("PaddleOCR initialized successfully!")
     except Exception as e:
         print(f"ERROR: Failed to initialize PaddleOCR: {e}")
         print("\nMake sure you have installed:")
-        print("  pip install paddleocr>=3.0.0 paddlepaddle>=3.0.0")
+        print("  pip install paddleocr paddlepaddle")
         sys.exit(1)
     
     # Perform OCR on all pages
     print("\n[4/4] Performing OCR on all pages...")
     all_text = []
+    
+    # Determine which method to use based on version
+    import paddleocr
+    major_version = int(paddleocr.__version__.split('.')[0])
+    is_v3_plus = major_version >= 3
     
     for i, image in enumerate(images, 1):
         print(f"  Processing page {i}/{len(images)}...")
@@ -157,9 +183,13 @@ def main():
             # Convert PIL Image to numpy array
             img_array = np.array(image)
             
-            # Use predict() method (PaddleOCR 3.0+ API)
-            # Note: ocr() method is deprecated in 3.0+, predict() is the new standard
-            result = ocr.predict(img_array)
+            if is_v3_plus:
+                # Use predict() method (PaddleOCR 3.0+ API)
+                # Note: ocr() method is deprecated in 3.0+, predict() is the new standard
+                result = ocr.predict(img_array)
+            else:
+                # Use ocr() method (PaddleOCR 2.x API)
+                result = ocr.ocr(img_array, cls=True)
             
             # Extract text from results
             page_text = extract_text_from_paddleocr_results(result)
