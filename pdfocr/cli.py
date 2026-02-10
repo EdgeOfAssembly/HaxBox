@@ -18,6 +18,13 @@ from pdfocr.engines import get_engine, available_engines
 from pdfocr.core import ocr_pdf, ocr_image_file
 from pdfocr.utils import process_inputs, parse_page_spec
 
+# Lazy import for pdf2image - optional dependency
+try:
+    from pdf2image import pdfinfo_from_path
+    HAS_PDF2IMAGE = True
+except ImportError:
+    HAS_PDF2IMAGE = False
+
 
 def main() -> None:
     """Main entry point for the pdfocr CLI."""
@@ -189,22 +196,22 @@ Examples:
                 # Parse page specification for PDFs
                 pages_to_process = None
                 if args.pages:
-                    try:
-                        # Need to get total pages to parse the spec
-                        from pdf2image import pdfinfo_from_path
-                        info = pdfinfo_from_path(str(file_path))
-                        total_pages = info.get("Pages", 0)
-                        if total_pages > 0:
-                            pages_to_process = parse_page_spec(args.pages, total_pages)
-                    except ImportError:
+                    if not HAS_PDF2IMAGE:
                         print(
                             "Warning: Cannot parse page specification without pdf2image. Processing all pages.",
                             file=sys.stderr,
                         )
-                    except ValueError as e:
-                        print(f"Error: Invalid page specification: {e}", file=sys.stderr)
-                        continue
-                
+                    else:
+                        try:
+                            # Need to get total pages to parse the spec
+                            info = pdfinfo_from_path(str(file_path))
+                            total_pages = info.get("Pages", 0)
+                            if total_pages > 0:
+                                pages_to_process = parse_page_spec(args.pages, total_pages)
+                        except ValueError as e:
+                            print(f"Error: Invalid page specification: {e}", file=sys.stderr)
+                            continue
+
                 ocr_pdf(
                     file_path,
                     output_dir,
