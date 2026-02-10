@@ -27,6 +27,7 @@ Contact: haxbox2000@gmail.com
 ### Requirements
 
 - Python 3.8+
+  - **Note:** PaddleOCR requires Python 3.8-3.12 (not compatible with Python 3.13+)
 - pip (Python package manager)
 
 ### Install All Dependencies
@@ -151,10 +152,11 @@ pdfocr scanned.pdf -e easyocr --gpu
 | easyocr | Medium | Better | Yes | Multiple languages |
 | trocr | Slow | Best | Yes | Printed text |
 | trocr-handwritten | Slow | Best | Yes | Handwritten text |
-| paddleocr | Medium | Best | Yes | State-of-the-art accuracy (v2.x: CPU+GPU; v3.x ready when bug fixed) |
+| paddleocr | Medium | Best | Yes | State-of-the-art accuracy (v2.x: CPU+GPU; v3.x ready when bug fixed; **Python 3.8-3.12 only**) |
 | doctr | Medium | Best | Yes | Document layouts |
 
 **Note on PaddleOCR versions:**
+- **Python 3.8-3.12 ONLY:** PaddlePaddle 2.x (required for CPU support) does not support Python 3.13+
 - **v2.x (current):** Fully functional on both CPU and GPU (78.64% accuracy validated)
 - **v3.x (future):** Code ready, waiting for PaddlePaddle CPU bug fix ([#59989](https://github.com/PaddlePaddle/Paddle/issues/59989))
 - See `PADDLEOCR_CPU_VALIDATION.md` for detailed validation results
