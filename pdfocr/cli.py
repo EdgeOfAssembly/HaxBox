@@ -34,13 +34,19 @@ def main() -> None:
     # Check if PaddleOCR is unavailable due to Python version
     import sys as sys_check
     paddleocr_unsupported = False
+    paddleocr_installed = False
+    
     if sys_check.version_info >= (3, 13):
+        # Check if paddleocr is installed (without importing it)
         try:
-            import paddleocr  # noqa: F401
-            # If import succeeds but version check fails, it means we have 3.x with CPU bug
-            paddleocr_unsupported = True
-        except ImportError:
-            # Not installed, but also not supported on this Python version
+            import importlib.util
+            spec = importlib.util.find_spec("paddleocr")
+            paddleocr_installed = spec is not None
+        except (ImportError, ValueError):
+            paddleocr_installed = False
+        
+        # If installed but we're on Python 3.13+, mark as unsupported
+        if paddleocr_installed:
             paddleocr_unsupported = True
     
     # Filter out engines that aren't compatible with current Python version
