@@ -5,16 +5,16 @@ This is a ground-up rewrite of the PaddleOCR integration to address persistent
 bugs that have required five separate bug-fix PRs (#9, #11, #12, #13, #14).
 
 VERSION SUPPORT:
-    Currently using PaddleOCR 2.x (< 3.0) for CPU and GPU support.
+    Currently using PaddleOCR 2.x (< 3.0) only for CPU and GPU support.
     
-    PaddleOCR 3.x support is ready and will be enabled once PaddlePaddle fixes
-    the CPU execution bug (GitHub issue PaddlePaddle/Paddle#59989). The 3.x API
-    changes are documented and the validation script supports both versions.
+    PaddleOCR 3.x has a CPU execution bug (GitHub issue PaddlePaddle/Paddle#59989).
+    This implementation is 2.x-only and does NOT support 3.x at this time.
     
-    When the bug is fixed:
-    - Update requirements.txt to allow paddleocr>=2.10.0
-    - The code will auto-detect version and use appropriate API
-    - Validation script confirms both 2.x and 3.x compatibility
+    When PaddlePaddle fixes the bug and 3.x support is desired:
+    - Update requirements.txt to remove the <3.0 constraint
+    - Implement version detection (check paddleocr.__version__)
+    - Add conditional logic to use 2.x API (use_gpu, ocr()) vs 3.x API (device, predict())
+    - The validation script already supports both versions for testing
 
 CRITICAL WORKAROUNDS (for future 3.x support):
     1. ENV VAR FIX (GitHub issue PaddlePaddle/Paddle#59989):

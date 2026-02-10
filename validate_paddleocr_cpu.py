@@ -48,6 +48,7 @@ from pathlib import Path
 from difflib import SequenceMatcher
 import numpy as np
 from pdf2image import convert_from_path
+import paddleocr
 from paddleocr import PaddleOCR
 
 
@@ -67,14 +68,33 @@ def similarity_ratio(text1: str, text2: str) -> float:
 def extract_text_from_paddleocr_results(results: list) -> str:
     """Extract plain text from PaddleOCR results.
     
-    PaddleOCR returns results in format:
+    PaddleOCR can return results in different formats:
+    
+    Format 1 (batched - list of pages):
+    [
+        [  # First page
+            [
+                [[x1,y1], [x2,y2], [x3,y3], [x4,y4]],  # bounding box
+                ('text', confidence)                      # text and confidence
+            ],
+            ...
+        ],
+        [  # Second page (if any)
+            ...
+        ]
+    ]
+    
+    Format 2 (single page - flat list):
     [
         [
-            [[x1,y1], [x2,y2], [x3,y3], [x4,y4]],  # bounding box
-            ('text', confidence)                      # text and confidence
+            [[x1,y1], [x2,y2], [x3,y3], [x4,y4]],
+            ('text', confidence)
         ],
         ...
     ]
+    
+    This function handles both formats by checking if results[0] contains
+    line entries (batched) or is itself a line entry (flat).
     
     Args:
         results: PaddleOCR prediction results
@@ -82,12 +102,32 @@ def extract_text_from_paddleocr_results(results: list) -> str:
     Returns:
         Extracted plain text string
     """
-    text_lines = []
-    
-    if not results or results[0] is None:
+    if not results:
         return ""
     
-    for line in results[0]:
+    # Check if results is empty or None
+    first = results[0]
+    if first is None:
+        return ""
+    
+    # Detect format: batched (list of pages) vs flat (single page)
+    # In batched format, results[0] is a list of line entries
+    # In flat format, results[0] is a single line entry [bbox, (text, conf)]
+    if (
+        isinstance(first, list)
+        and first
+        and len(first) == 2
+        and isinstance(first[0], list)  # bbox is a list
+        and isinstance(first[1], tuple)  # (text, confidence) is a tuple
+    ):
+        # Flat format: results is already the list of line entries
+        iterable = results
+    else:
+        # Batched format: results[0] is the first page's line entries
+        iterable = first
+    
+    text_lines = []
+    for line in iterable:
         if line and len(line) > 1:
             text, confidence = line[1]
             text_lines.append(text)
@@ -133,7 +173,6 @@ def main():
         sys.exit(1)
     
     # Check PaddleOCR version
-    import paddleocr
     version = paddleocr.__version__
     print(f"\n[3/5] Detected PaddleOCR version: {version}")
     major_version = int(version.split('.')[0])

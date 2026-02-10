@@ -313,15 +313,17 @@ class TestOcrWithPaddleocr:
 
         img = Image.open(sample_png_path)
         mock_paddle = MagicMock()
-        # PaddleOCR returns: [[[bbox], (text, confidence)], ...]
-        mock_paddle.predict.return_value = [[
+        # PaddleOCR 2.x returns: [[[bbox], (text, confidence)], ...]
+        mock_paddle.ocr.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
         ]]
 
         with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle):
-            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+            with patch.object(pdfocr, "_get_numpy", return_value=MagicMock()):
                 result = pdfocr.ocr_with_paddleocr(img, lang="en", gpu=False)
                 assert result == "test text"
+                # Verify 2.x API was used
+                mock_paddle.ocr.assert_called_once()
 
     def test_return_boxes(self, sample_png_path: Path):
         """Returns structured data when return_boxes=True."""
@@ -329,17 +331,19 @@ class TestOcrWithPaddleocr:
 
         img = Image.open(sample_png_path)
         mock_paddle = MagicMock()
-        mock_paddle.predict.return_value = [[
+        mock_paddle.ocr.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
         ]]
 
         with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle):
-            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+            with patch.object(pdfocr, "_get_numpy", return_value=MagicMock()):
                 result = pdfocr.ocr_with_paddleocr(img, return_boxes=True)
                 assert isinstance(result, list)
                 assert len(result) == 1
                 assert result[0]["text"] == "test text"
                 assert result[0]["confidence"] == 0.95
+                # Verify 2.x API was used
+                mock_paddle.ocr.assert_called_once()
 
     def test_batch_size_parameters(self, sample_png_path: Path):
         """Batch size parameters are passed to _get_paddleocr."""
@@ -347,15 +351,17 @@ class TestOcrWithPaddleocr:
 
         img = Image.open(sample_png_path)
         mock_paddle = MagicMock()
-        mock_paddle.predict.return_value = [[
+        mock_paddle.ocr.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test", 0.95)]
         ]]
 
         with patch.object(pdfocr, "_get_paddleocr", return_value=mock_paddle) as mock_get:
-            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+            with patch.object(pdfocr, "_get_numpy", return_value=MagicMock()):
                 pdfocr.ocr_with_paddleocr(img, lang="en", gpu=False, text_recognition_batch_size=2)
                 # Check that _get_paddleocr was called with correct batch size
                 mock_get.assert_called_with(lang="en", gpu=False, text_recognition_batch_size=2)
+                # Verify 2.x API was used
+                mock_paddle.ocr.assert_called_once()
 
     def test_oom_fallback_to_cpu(self, sample_png_path: Path):
         """Falls back to CPU when GPU encounters OOM error."""
@@ -366,10 +372,10 @@ class TestOcrWithPaddleocr:
         mock_paddle_cpu = MagicMock()
         
         # GPU instance raises OOM error
-        mock_paddle_gpu.predict.side_effect = Exception("Out of memory error on GPU 0")
+        mock_paddle_gpu.ocr.side_effect = Exception("Out of memory error on GPU 0")
         
         # CPU instance returns results
-        mock_paddle_cpu.predict.return_value = [[
+        mock_paddle_cpu.ocr.return_value = [[
             [[[0, 0], [10, 0], [10, 10], [0, 10]], ("fallback text", 0.95)]
         ]]
 
@@ -385,10 +391,149 @@ class TestOcrWithPaddleocr:
                 return mock_paddle_cpu
 
         with patch.object(pdfocr, "_get_paddleocr", side_effect=mock_get_paddleocr):
-            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+            with patch.object(pdfocr, "_get_numpy", return_value=MagicMock()):
                 result = pdfocr.ocr_with_paddleocr(img, lang="en", gpu=True, text_recognition_batch_size=1)
                 assert result == "fallback text"
                 assert call_count == 2  # Called twice: GPU then CPU
+                # Verify 2.x API was used
+                mock_paddle_gpu.ocr.assert_called_once()
+                mock_paddle_cpu.ocr.assert_called_once()
+
+
+class TestPaddleOCREngine:
+    """Tests for PaddleOCREngine class (2.x API)."""
+
+    def test_engine_initialization(self):
+        """Engine initializes with correct parameters."""
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        
+        engine = PaddleOCREngine(lang="eng", gpu=False, batch_size=2)
+        assert engine.lang == "eng"
+        assert engine.gpu is False
+        assert engine.batch_size == 2
+
+    def test_ocr_calls_paddle_ocr_with_cls_true(self, sample_png_path: Path):
+        """Engine calls PaddleOCR.ocr() with cls=True (2.x API)."""
+        from PIL import Image
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        
+        img = Image.open(sample_png_path)
+        mock_paddle = MagicMock()
+        # Mock the 2.x API return format
+        mock_paddle.ocr.return_value = [[
+            [[[0, 0], [10, 0], [10, 10], [0, 10]], ("test text", 0.95)]
+        ]]
+        
+        with patch("pdfocr.engines.paddleocr._get_paddleocr", return_value=mock_paddle):
+            with patch("pdfocr.engines.paddleocr._get_numpy", return_value=MagicMock()):
+                engine = PaddleOCREngine(lang="eng", gpu=False)
+                result = engine.ocr(img)
+                
+                # Verify ocr() was called with cls=True (2.x API)
+                mock_paddle.ocr.assert_called_once()
+                call_args = mock_paddle.ocr.call_args
+                assert call_args[1].get('cls') is True or (len(call_args[0]) > 1 and call_args[0][1] is True)
+                
+                # Verify text extraction
+                assert result == "test text"
+
+    def test_ocr_with_boxes_returns_structured_data(self, sample_png_path: Path):
+        """Engine returns boxes when return_boxes=True."""
+        from PIL import Image
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        
+        img = Image.open(sample_png_path)
+        mock_paddle = MagicMock()
+        mock_paddle.ocr.return_value = [[
+            [[[0, 0], [100, 0], [100, 50], [0, 50]], ("hello", 0.99)],
+            [[[0, 60], [80, 60], [80, 100], [0, 100]], ("world", 0.95)]
+        ]]
+        
+        with patch("pdfocr.engines.paddleocr._get_paddleocr", return_value=mock_paddle):
+            with patch("pdfocr.engines.paddleocr._get_numpy", return_value=MagicMock()):
+                engine = PaddleOCREngine(lang="eng", gpu=False)
+                result = engine.ocr(img, return_boxes=True)
+                
+                # Verify structured output
+                assert isinstance(result, list)
+                assert len(result) == 2
+                assert result[0]["text"] == "hello"
+                assert result[0]["confidence"] == 0.99
+                assert result[0]["bbox"] == [[0, 0], [100, 0], [100, 50], [0, 50]]
+                assert result[1]["text"] == "world"
+                assert result[1]["confidence"] == 0.95
+
+    def test_gpu_oom_fallback_to_cpu(self, sample_png_path: Path):
+        """Engine falls back to CPU on GPU OOM error."""
+        from PIL import Image
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        
+        img = Image.open(sample_png_path)
+        mock_paddle_gpu = MagicMock()
+        mock_paddle_cpu = MagicMock()
+        
+        # GPU raises OOM error
+        mock_paddle_gpu.ocr.side_effect = Exception("CUDA out of memory")
+        
+        # CPU succeeds
+        mock_paddle_cpu.ocr.return_value = [[
+            [[[0, 0], [10, 0], [10, 10], [0, 10]], ("cpu fallback", 0.95)]
+        ]]
+        
+        call_count = 0
+        def mock_get_paddleocr(lang, gpu, batch_size):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return mock_paddle_gpu
+            else:
+                return mock_paddle_cpu
+        
+        with patch("pdfocr.engines.paddleocr._get_paddleocr", side_effect=mock_get_paddleocr):
+            with patch("pdfocr.engines.paddleocr._get_numpy", return_value=MagicMock()):
+                engine = PaddleOCREngine(lang="eng", gpu=True, batch_size=1)
+                result = engine.ocr(img)
+                
+                # Verify fallback occurred
+                assert result == "cpu fallback"
+                assert call_count == 2  # GPU then CPU
+                mock_paddle_gpu.ocr.assert_called_once()
+                mock_paddle_cpu.ocr.assert_called_once()
+
+    def test_non_oom_error_propagates(self, sample_png_path: Path):
+        """Non-OOM errors are not caught by fallback logic."""
+        from PIL import Image
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        
+        img = Image.open(sample_png_path)
+        mock_paddle = MagicMock()
+        mock_paddle.ocr.side_effect = ValueError("Invalid input")
+        
+        with patch("pdfocr.engines.paddleocr._get_paddleocr", return_value=mock_paddle):
+            with patch("pdfocr.engines.paddleocr._get_numpy", return_value=MagicMock()):
+                engine = PaddleOCREngine(lang="eng", gpu=True)
+                with pytest.raises(ValueError, match="Invalid input"):
+                    engine.ocr(img)
+
+    def test_cpu_mode_no_fallback(self, sample_png_path: Path):
+        """CPU mode does not attempt fallback logic."""
+        from PIL import Image
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        
+        img = Image.open(sample_png_path)
+        mock_paddle = MagicMock()
+        mock_paddle.ocr.return_value = [[
+            [[[0, 0], [10, 0], [10, 10], [0, 10]], ("cpu text", 0.95)]
+        ]]
+        
+        with patch("pdfocr.engines.paddleocr._get_paddleocr", return_value=mock_paddle) as mock_get:
+            with patch("pdfocr.engines.paddleocr._get_numpy", return_value=MagicMock()):
+                engine = PaddleOCREngine(lang="eng", gpu=False)
+                result = engine.ocr(img)
+                
+                assert result == "cpu text"
+                # Should only call _get_paddleocr once (no fallback)
+                mock_get.assert_called_once()
 
 
 class TestOcrWithDoctr:
@@ -442,7 +587,7 @@ class TestOcrWithDoctr:
         mock_doctr.return_value = mock_result
         
         with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
-            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+            with patch.object(pdfocr, "_get_numpy", return_value=MagicMock()):
                 result = pdfocr.ocr_with_doctr(img, gpu=False)
                 assert result == "test"
 
@@ -474,7 +619,7 @@ class TestOcrWithDoctr:
         mock_doctr.return_value = mock_result
         
         with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
-            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+            with patch.object(pdfocr, "_get_numpy", return_value=MagicMock()):
                 result = pdfocr.ocr_with_doctr(img, return_boxes=True)
                 assert isinstance(result, list)
                 assert len(result) == 1
@@ -516,7 +661,7 @@ class TestOcrWithDoctr:
         mock_doctr.return_value = mock_result
         
         with patch.object(pdfocr, "_get_doctr_model", return_value=mock_doctr):
-            with patch.object(pdfocr, "_get_numpy", return_value=__import__("numpy")):
+            with patch.object(pdfocr, "_get_numpy", return_value=MagicMock()):
                 result = pdfocr.ocr_with_doctr(img, gpu=False)
                 # With a 1000 pixel wide image, gap would be (0.6 - 0.2) * 1000 = 400 pixels
                 # Should result in multiple spaces (roughly 40 spaces: 400 / 10)
