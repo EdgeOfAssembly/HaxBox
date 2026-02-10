@@ -91,8 +91,9 @@ def main() -> None:
         # (will fail later with helpful error message)
         default_engine = "tesseract"
     
-    # If no compatible choices, fall back to all choices (argparse will show the list)
-    engine_choices = compatible_choices if compatible_choices else all_engine_choices
+    # Always show all engine choices in help text, not just installed ones
+    # This helps users discover what engines are supported
+    engine_choices = all_engine_choices
     
     # Show warning if PaddleOCR is not available due to Python version
     # Check for quiet flag in a more robust way (handles -q, --quiet, and combined flags like -qv)
@@ -151,12 +152,19 @@ Examples:
         help="Input PDF/image files or directories to process",
     )
 
+    # Build help text showing which engines are installed
+    if compatible_choices:
+        installed_list = ", ".join(compatible_choices)
+        engine_help = f"OCR engine to use (default: {default_engine}). Installed: {installed_list}"
+    else:
+        engine_help = f"OCR engine to use (default: {default_engine}). Note: No engines currently installed"
+    
     parser.add_argument(
         "-e",
         "--engine",
         choices=engine_choices,
         default=default_engine,
-        help=f"OCR engine to use (default: {default_engine})",
+        help=engine_help,
     )
 
     parser.add_argument(
