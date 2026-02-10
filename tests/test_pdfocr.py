@@ -535,6 +535,60 @@ class TestPaddleOCREngine:
                 # Should only call _get_paddleocr once (no fallback)
                 mock_get.assert_called_once()
 
+    def test_is_available_python_313_returns_false(self):
+        """PaddleOCREngine.is_available() returns False on Python 3.13+."""
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        import sys
+        
+        # Save original version_info
+        original_version = sys.version_info
+        
+        try:
+            # Mock Python 3.13
+            class MockVersionInfo:
+                def __init__(self, major, minor, micro):
+                    self.major = major
+                    self.minor = minor
+                    self.micro = micro
+                
+                def __ge__(self, other):
+                    return (self.major, self.minor) >= other
+                
+                def __getitem__(self, idx):
+                    return [self.major, self.minor, self.micro][idx]
+            
+            sys.version_info = MockVersionInfo(3, 13, 0)
+            
+            # Should return False without attempting to import paddleocr
+            result = PaddleOCREngine.is_available()
+            assert result is False
+            
+            # Test with 3.14 as well
+            sys.version_info = MockVersionInfo(3, 14, 0)
+            result = PaddleOCREngine.is_available()
+            assert result is False
+            
+        finally:
+            # Restore original version
+            sys.version_info = original_version
+
+    def test_is_available_python_312_checks_import(self):
+        """PaddleOCREngine.is_available() checks import on Python 3.12 and below."""
+        from pdfocr.engines.paddleocr import PaddleOCREngine
+        import sys
+        
+        # Only run this test if we're on Python 3.12 or lower
+        if sys.version_info >= (3, 13):
+            pytest.skip("Test only runs on Python 3.12 or lower")
+        
+        # On Python 3.12 and below, it should attempt import
+        # If paddleocr is installed, should return True
+        result = PaddleOCREngine.is_available()
+        
+        # The result depends on whether paddleocr is actually installed
+        # We're just verifying the method runs without error
+        assert isinstance(result, bool)
+
 
 class TestOcrWithDoctr:
     """Tests for ocr_with_doctr function."""

@@ -26,35 +26,70 @@ except ImportError:
     HAS_PDF2IMAGE = False
 
 
+def _is_engine_available_lightweight(engine: str) -> bool:
+    """Lightweight check for engine availability without importing heavy dependencies.
+    
+    This is used for building CLI choices and help text without triggering
+    import-time side effects or slow imports of optional dependencies.
+    
+    Args:
+        engine: Engine name (e.g., "tesseract", "paddleocr", "trocr-handwritten")
+        
+    Returns:
+        True if the engine's underlying package is available, False otherwise.
+    """
+    # Map engine names to the underlying Python package
+    base_engine = engine.replace("-handwritten", "")
+    module_map = {
+        "tesseract": "pytesseract",
+        "easyocr": "easyocr",
+        "trocr": "transformers",
+        "paddleocr": "paddleocr",
+        "doctr": "doctr",
+    }
+    
+    module_name = module_map.get(base_engine)
+    if module_name is None:
+        # Unknown engine, assume available
+        return True
+    
+    # Special case: paddleocr on Python 3.13+
+    if module_name == "paddleocr" and sys.version_info >= (3, 13):
+        return False
+    
+    try:
+        import importlib.util
+        return importlib.util.find_spec(module_name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
 def main() -> None:
     """Main entry point for the pdfocr CLI."""
     # Get available OCR engines dynamically based on Python version and installed packages
     all_engine_choices = ["tesseract", "easyocr", "trocr", "trocr-handwritten", "paddleocr", "doctr"]
     
     # Check if PaddleOCR is unavailable due to Python version
-    paddleocr_unsupported = False
-    paddleocr_installed = False
+    # Show warning if on Python 3.13+ to explain why paddleocr isn't available
+    paddleocr_unsupported = sys.version_info >= (3, 13)
     
-    if sys.version_info >= (3, 13):
-        # Check if paddleocr is installed (without importing it)
-        try:
-            import importlib.util
-            spec = importlib.util.find_spec("paddleocr")
-            paddleocr_installed = spec is not None
-        except (ImportError, ValueError):
-            paddleocr_installed = False
-        
-        # If installed but we're on Python 3.13+, mark as unsupported
-        if paddleocr_installed:
-            paddleocr_unsupported = True
-    
-    # Filter out engines that aren't compatible with current Python version
-    # (e.g., paddleocr requires Python <= 3.12)
-    available = available_engines()
+    # Filter out engines based on lightweight availability check
+    # This avoids importing heavy dependencies during --help
     compatible_choices = [
         e for e in all_engine_choices 
-        if (e.replace("-handwritten", "") in available) or (e == "trocr-handwritten" and "trocr" in available)
+        if _is_engine_available_lightweight(e)
     ]
+    
+    # Determine the default engine dynamically
+    # Prefer tesseract if available, otherwise use first available engine
+    if "tesseract" in compatible_choices:
+        default_engine = "tesseract"
+    elif compatible_choices:
+        default_engine = compatible_choices[0]
+    else:
+        # No engines available, fall back to tesseract as default
+        # (will fail later with helpful error message)
+        default_engine = "tesseract"
     
     # If no compatible choices, fall back to all choices (argparse will show the list)
     engine_choices = compatible_choices if compatible_choices else all_engine_choices
@@ -120,8 +155,8 @@ Examples:
         "-e",
         "--engine",
         choices=engine_choices,
-        default="tesseract",
-        help="OCR engine to use (default: tesseract)",
+        default=default_engine,
+        help=f"OCR engine to use (default: {default_engine})",
     )
 
     parser.add_argument(
