@@ -19,6 +19,12 @@ Public API:
     validate_dpi(dpi) -> int
     parse_page_spec(spec, total_pages) -> List[int]
     
+    # Font detection
+    detect_fonts(input_path, dpi) -> List[dict]
+    detect_fonts_native(pdf_path) -> List[dict]
+    detect_fonts_scanned(input_path, dpi) -> List[dict]
+    estimate_redacted_chars(image, redaction_bbox, dpi, reference_text_bboxes) -> dict
+    
     # Constants
     __version__: str
     MIN_DPI, MAX_DPI: int
@@ -97,6 +103,14 @@ from pdfocr.cli import (
     check_engine_available,
 )
 
+# Font detection
+from pdfocr.font_detect import (
+    detect_fonts,
+    detect_fonts_native,
+    detect_fonts_scanned,
+    estimate_redacted_chars,
+)
+
 __all__ = [
     # Version and constants
     "__version__",
@@ -127,4 +141,9 @@ __all__ = [
     # CLI functions
     "main",
     "check_engine_available",
+    # Font detection
+    "detect_fonts",
+    "detect_fonts_native",
+    "detect_fonts_scanned",
+    "estimate_redacted_chars",
 ]

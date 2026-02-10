@@ -239,7 +239,50 @@ Examples:
         version=f"pdfocr {__version__}",
     )
 
+    parser.add_argument(
+        "--detect-fonts",
+        action="store_true",
+        help="Detect font types and sizes from input files (output as JSON)",
+    )
+
     args = parser.parse_args()
+
+    # Handle font detection mode
+    if args.detect_fonts:
+        import json
+        from pdfocr.font_detect import detect_fonts
+        
+        # Process inputs
+        try:
+            files = process_inputs(args.inputs)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        
+        if not files:
+            print("Error: No files to process", file=sys.stderr)
+            sys.exit(1)
+        
+        # Detect fonts for each file
+        all_results = {}
+        for file_path in files:
+            try:
+                if not args.quiet:
+                    print(f"Detecting fonts in {file_path}...", file=sys.stderr)
+                
+                results = detect_fonts(file_path, dpi=args.dpi)
+                all_results[str(file_path)] = results
+                
+            except Exception as e:
+                print(f"Error detecting fonts in {file_path}: {e}", file=sys.stderr)
+                if not args.quiet:
+                    import traceback
+                    traceback.print_exc()
+                all_results[str(file_path)] = {"error": str(e)}
+        
+        # Output results as JSON
+        print(json.dumps(all_results, indent=2))
+        return
 
     # Handle TrOCR variants
     model_variant: Optional[str] = None
