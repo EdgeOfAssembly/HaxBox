@@ -91,6 +91,12 @@ from pdfocr.engines import (
     OCREngine,
 )
 
+# CLI functions
+from pdfocr.cli import (
+    main,
+    check_engine_available,
+)
+
 __all__ = [
     # Version and constants
     "__version__",
@@ -118,4 +124,7 @@ __all__ = [
     "available_engines",
     "get_all_engines",
     "OCREngine",
+    # CLI functions
+    "main",
+    "check_engine_available",
 ]

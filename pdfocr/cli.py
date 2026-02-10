@@ -16,7 +16,14 @@ from typing import List, Optional
 from pdfocr.types import __version__, DEFAULT_OUTPUT_DIR
 from pdfocr.engines import get_engine, available_engines
 from pdfocr.core import ocr_pdf, ocr_image_file
-from pdfocr.utils import process_inputs
+from pdfocr.utils import process_inputs, parse_page_spec
+
+# Lazy import for pdf2image - optional dependency
+try:
+    from pdf2image import pdfinfo_from_path
+    HAS_PDF2IMAGE = True
+except ImportError:
+    HAS_PDF2IMAGE = False
 
 
 def main() -> None:
@@ -181,26 +188,59 @@ Examples:
 
     # Process each file
     enhance = not args.no_enhance
-    return_boxes = args.format == "json"
+    output_format = "json" if args.format == "json" else "text"
 
     for file_path in files:
         try:
             if file_path.suffix.lower() == ".pdf":
+                # Parse page specification for PDFs
+                pages_to_process = None
+                if args.pages:
+                    if not HAS_PDF2IMAGE:
+                        print(
+                            "Warning: Cannot parse page specification without pdf2image. Processing all pages.",
+                            file=sys.stderr,
+                        )
+                    else:
+                        try:
+                            # Get total page count from PDF
+                            # Note: pdfinfo_from_path returns dict with "Pages" key (capital P)
+                            info = pdfinfo_from_path(str(file_path))
+                            total_pages = info.get("Pages", 0)
+                            
+                            if total_pages <= 0:
+                                print(
+                                    f"Warning: Could not determine page count for {file_path.name}. Processing all pages.",
+                                    file=sys.stderr,
+                                )
+                            else:
+                                # Parse page specification
+                                pages_to_process = parse_page_spec(args.pages, total_pages)
+                        except ValueError as e:
+                            # Invalid page specification format
+                            print(f"Error: Invalid page specification: {e}", file=sys.stderr)
+                            continue
+                        except Exception as e:
+                            # Error reading PDF info (corrupted file, permissions, etc.)
+                            print(
+                                f"Warning: Could not read PDF info for {file_path.name}: {e}. Processing all pages.",
+                                file=sys.stderr,
+                            )
+
                 ocr_pdf(
                     file_path,
                     output_dir,
                     engine=args.engine,
                     lang=args.lang,
-                    pages_spec=args.pages,
+                    pages=pages_to_process,
                     dpi=args.dpi,
                     enhance=enhance,
-                    return_boxes=return_boxes,
+                    output_format=output_format,
                     save_images=args.save_images,
                     gpu=args.gpu,
                     batch_size=args.batch_size,
                     force=args.force,
                     quiet=args.quiet,
-                    model_variant=model_variant,
                 )
             else:
                 ocr_image_file(
@@ -209,11 +249,11 @@ Examples:
                     engine=args.engine,
                     lang=args.lang,
                     enhance=enhance,
-                    return_boxes=return_boxes,
+                    output_format=output_format,
                     gpu=args.gpu,
                     batch_size=args.batch_size,
                     force=args.force,
-                    model_variant=model_variant,
+                    quiet=args.quiet,
                 )
         except Exception as e:
             print(f"Error processing {file_path}: {e}", file=sys.stderr)
