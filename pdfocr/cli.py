@@ -16,7 +16,7 @@ from typing import List, Optional
 from pdfocr.types import __version__, DEFAULT_OUTPUT_DIR
 from pdfocr.engines import get_engine, available_engines
 from pdfocr.core import ocr_pdf, ocr_image_file
-from pdfocr.utils import process_inputs
+from pdfocr.utils import process_inputs, parse_page_spec
 
 
 def main() -> None:
@@ -181,26 +181,44 @@ Examples:
 
     # Process each file
     enhance = not args.no_enhance
-    return_boxes = args.format == "json"
+    output_format = "json" if args.format == "json" else "text"
 
     for file_path in files:
         try:
             if file_path.suffix.lower() == ".pdf":
+                # Parse page specification for PDFs
+                pages_to_process = None
+                if args.pages:
+                    try:
+                        # Need to get total pages to parse the spec
+                        from pdf2image import pdfinfo_from_path
+                        info = pdfinfo_from_path(str(file_path))
+                        total_pages = info.get("Pages", 0)
+                        if total_pages > 0:
+                            pages_to_process = parse_page_spec(args.pages, total_pages)
+                    except ImportError:
+                        print(
+                            "Warning: Cannot parse page specification without pdf2image. Processing all pages.",
+                            file=sys.stderr,
+                        )
+                    except ValueError as e:
+                        print(f"Error: Invalid page specification: {e}", file=sys.stderr)
+                        continue
+                
                 ocr_pdf(
                     file_path,
                     output_dir,
                     engine=args.engine,
                     lang=args.lang,
-                    pages_spec=args.pages,
+                    pages=pages_to_process,
                     dpi=args.dpi,
                     enhance=enhance,
-                    return_boxes=return_boxes,
+                    output_format=output_format,
                     save_images=args.save_images,
                     gpu=args.gpu,
                     batch_size=args.batch_size,
                     force=args.force,
                     quiet=args.quiet,
-                    model_variant=model_variant,
                 )
             else:
                 ocr_image_file(
@@ -209,11 +227,11 @@ Examples:
                     engine=args.engine,
                     lang=args.lang,
                     enhance=enhance,
-                    return_boxes=return_boxes,
+                    output_format=output_format,
                     gpu=args.gpu,
                     batch_size=args.batch_size,
                     force=args.force,
-                    model_variant=model_variant,
+                    quiet=args.quiet,
                 )
         except Exception as e:
             print(f"Error processing {file_path}: {e}", file=sys.stderr)
