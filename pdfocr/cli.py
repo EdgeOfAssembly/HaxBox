@@ -32,11 +32,10 @@ def main() -> None:
     all_engine_choices = ["tesseract", "easyocr", "trocr", "trocr-handwritten", "paddleocr", "doctr"]
     
     # Check if PaddleOCR is unavailable due to Python version
-    import sys as sys_check
     paddleocr_unsupported = False
     paddleocr_installed = False
     
-    if sys_check.version_info >= (3, 13):
+    if sys.version_info >= (3, 13):
         # Check if paddleocr is installed (without importing it)
         try:
             import importlib.util
@@ -52,15 +51,18 @@ def main() -> None:
     # Filter out engines that aren't compatible with current Python version
     # (e.g., paddleocr requires Python <= 3.12)
     available = available_engines()
-    compatible_choices = [e for e in all_engine_choices if e.replace("-handwritten", "") in available or e == "trocr-handwritten" and "trocr" in available]
+    compatible_choices = [
+        e for e in all_engine_choices 
+        if (e.replace("-handwritten", "") in available) or (e == "trocr-handwritten" and "trocr" in available)
+    ]
     
     # If no compatible choices, fall back to all choices (argparse will show the list)
     engine_choices = compatible_choices if compatible_choices else all_engine_choices
     
     # Show warning if PaddleOCR is not available due to Python version
-    if paddleocr_unsupported and not any("-q" in arg or "--quiet" in arg for arg in sys_check.argv):
+    if paddleocr_unsupported and not any("-q" in arg or "--quiet" in arg for arg in sys.argv):
         print(
-            f"Warning: PaddleOCR is not available on Python {sys_check.version_info.major}.{sys_check.version_info.minor}.",
+            f"Warning: PaddleOCR is not available on Python {sys.version_info.major}.{sys.version_info.minor}.",
             file=sys.stderr
         )
         print(
