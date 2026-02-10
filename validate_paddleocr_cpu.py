@@ -116,13 +116,13 @@ def main():
     print(f"Ground truth file: {ground_truth_path}")
     
     # Read ground truth
-    print("\n[1/4] Reading ground truth...")
+    print("\n[1/5] Reading ground truth...")
     with open(ground_truth_path, 'r', encoding='utf-8') as f:
         ground_truth = f.read()
     print(f"Ground truth length: {len(ground_truth)} characters")
     
     # Convert PDF to images
-    print("\n[2/4] Converting PDF to images...")
+    print("\n[2/5] Converting PDF to images...")
     try:
         images = convert_from_path(str(pdf_path))
         print(f"Converted {len(images)} pages")
@@ -130,18 +130,42 @@ def main():
         print(f"ERROR: Failed to convert PDF to images: {e}")
         sys.exit(1)
     
-    # Initialize PaddleOCR in CPU mode
-    print("\n[3/4] Initializing PaddleOCR in CPU mode...")
+    # Check PaddleOCR version
+    import paddleocr
+    version = paddleocr.__version__
+    print(f"\n[3/5] Detected PaddleOCR version: {version}")
+    major_version = int(version.split('.')[0])
+    is_v3_plus = major_version >= 3
+    
+    # Test GPU mode support (even without GPU hardware)
+    print("\n[3a/5] Testing GPU mode initialization (without GPU hardware)...")
+    gpu_supported = False
     try:
-        # Import paddleocr to check version
-        import paddleocr
-        version = paddleocr.__version__
-        print(f"PaddleOCR version: {version}")
-        
-        # Parse version to determine API
-        major_version = int(version.split('.')[0])
-        is_v3_plus = major_version >= 3
-        
+        if is_v3_plus:
+            test_ocr = PaddleOCR(
+                lang='en',
+                device='gpu',
+                text_recognition_batch_size=1,
+                use_textline_orientation=True,
+            )
+        else:
+            test_ocr = PaddleOCR(
+                lang='en',
+                use_gpu=True,
+                use_angle_cls=True,
+                rec_batch_num=1,
+            )
+        print("✓ GPU mode initialization succeeded (will use GPU if available, CPU otherwise)")
+        gpu_supported = True
+        del test_ocr  # Clean up
+    except Exception as e:
+        print(f"✗ GPU mode initialization failed: {e}")
+        print("  This is expected if no GPU is available, but the flag should still be accepted")
+        gpu_supported = False
+    
+    # Initialize PaddleOCR in CPU mode
+    print("\n[4/5] Initializing PaddleOCR in CPU mode...")
+    try:
         if is_v3_plus:
             print("Using PaddleOCR 3.0+ API...")
             # PaddleOCR 3.0+ uses device parameter
@@ -169,13 +193,10 @@ def main():
         sys.exit(1)
     
     # Perform OCR on all pages
-    print("\n[4/4] Performing OCR on all pages...")
+    print("\n[5/5] Performing OCR on all pages...")
     all_text = []
     
     # Determine which method to use based on version
-    import paddleocr
-    major_version = int(paddleocr.__version__.split('.')[0])
-    is_v3_plus = major_version >= 3
     
     for i, image in enumerate(images, 1):
         print(f"  Processing page {i}/{len(images)}...")
@@ -218,6 +239,7 @@ def main():
     print(f"\nOCR output length: {len(ocr_output)} characters")
     print(f"Ground truth length: {len(ground_truth)} characters")
     print(f"Similarity ratio: {similarity:.2%}")
+    print(f"GPU mode support: {'✓ Yes' if gpu_supported else '✗ No (or not available)'}")
     
     # Define success threshold
     # OCR is not perfect, so we accept 60% similarity as reasonable

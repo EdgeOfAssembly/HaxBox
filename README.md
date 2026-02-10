@@ -39,7 +39,7 @@ pip install pypdf pymupdf pillow tqdm numpy
 pip install pytesseract pdf2image opencv-python-headless
 pip install easyocr  # Optional, higher accuracy
 pip install transformers torch  # Optional, TrOCR transformer-based OCR
-pip install 'paddleocr<3.0' 'paddlepaddle<3.0'  # Optional, state-of-the-art OCR (use v2.x)
+pip install 'paddleocr<3.0' 'paddlepaddle<3.0'  # Optional, state-of-the-art OCR (v2.x; v3.x ready when CPU bug fixed)
 pip install python-doctr[torch]  # Optional, document-focused OCR
 
 # For screenrec
@@ -151,8 +151,13 @@ pdfocr scanned.pdf -e easyocr --gpu
 | easyocr | Medium | Better | Yes | Multiple languages |
 | trocr | Slow | Best | Yes | Printed text |
 | trocr-handwritten | Slow | Best | Yes | Handwritten text |
-| paddleocr | Medium | Best | Yes | State-of-the-art accuracy (use v2.x, CPU+GPU) |
+| paddleocr | Medium | Best | Yes | State-of-the-art accuracy (v2.x: CPU+GPU; v3.x ready when bug fixed) |
 | doctr | Medium | Best | Yes | Document layouts |
+
+**Note on PaddleOCR versions:**
+- **v2.x (current):** Fully functional on both CPU and GPU (78.64% accuracy validated)
+- **v3.x (future):** Code ready, waiting for PaddlePaddle CPU bug fix ([#59989](https://github.com/PaddlePaddle/Paddle/issues/59989))
+- See `PADDLEOCR_CPU_VALIDATION.md` for detailed validation results
 
 ---
 

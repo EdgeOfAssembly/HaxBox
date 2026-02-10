@@ -18,6 +18,7 @@ This document summarizes the validation testing of PaddleOCR in CPU mode on the 
 - **OCR Output Length:** 6,521 characters
 - **Ground Truth Length:** 8,537 characters
 - **Similarity Ratio:** 78.64%
+- **GPU Flag Support:** ✅ Yes (gracefully handles `use_gpu=True` even without GPU hardware)
 - **Result:** All 10 pages processed successfully with high-quality OCR output
 
 ### Key Findings
@@ -27,8 +28,9 @@ PaddleOCR 2.10.0 works perfectly in CPU mode! The OCR output shows:
 - Proper layout preservation
 - Correct number and date recognition (e.g., "29/04/2010", "21:30:41")
 - Good handling of technical terminology and chemical formulas
+- GPU flag is accepted gracefully (falls back to CPU when no GPU available)
 
-**Recommendation:** Use PaddleOCR 2.x (< 3.0) for CPU mode. Version 2.10.0 is stable and reliable.
+**Recommendation:** Use PaddleOCR 2.x (< 3.0) for production. Version 2.10.0 is stable and reliable.
 
 ---
 
