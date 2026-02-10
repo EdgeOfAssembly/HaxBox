@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Validation script to test PaddleOCR 3.0+ in CPU mode.
+"""Validation script to test PaddleOCR in CPU mode.
 
-This script validates that PaddleOCR 3.0+ works correctly in CPU mode
+This script validates that PaddleOCR works correctly in CPU mode
 by performing OCR on PPC_example_data_pages_001-010.pdf and comparing
 the results to the ground truth in PPC_example_data.txt.
 
+Supports both PaddleOCR 2.x and 3.x with automatic version detection.
+
 Requirements:
-- PaddleOCR 3.0+
-- PaddlePaddle 3.0+ (CPU version)
+- PaddleOCR (2.x or 3.x)
+- PaddlePaddle (2.x or 3.x, matching PaddleOCR version)
 - pdf2image
 - Pillow
 
@@ -26,10 +28,10 @@ from __future__ import annotations
 
 import os
 
-# Set FLAGS_use_mkldnn multiple times with different values as paranoid defense
-# The first assignment may not take effect in all cases, so we set it multiple times
-os.environ['FLAGS_use_mkldnn'] = 'False'  # String 'False' for compatibility
-os.environ['FLAGS_use_mkldnn'] = '0'      # Numeric '0' as backup (overwrites above)
+# Set FLAGS_use_mkldnn to '0' to disable MKL-DNN/oneDNN
+# This is a workaround for PaddlePaddle 3.0+ PIR CPU execution bug
+# Multiple settings attempted as paranoid defense (last one takes effect)
+os.environ['FLAGS_use_mkldnn'] = '0'      # Disable MKL-DNN
 os.environ['FLAGS_use_onednn'] = '0'      # Disable oneDNN (new name for MKL-DNN)
 
 # Additional flags that may help
@@ -96,7 +98,7 @@ def extract_text_from_paddleocr_results(results: list) -> str:
 def main():
     """Main validation function."""
     print("=" * 80)
-    print("PaddleOCR 3.0+ CPU Mode Validation Script")
+    print("PaddleOCR CPU Mode Validation Script")
     print("=" * 80)
     
     # Define file paths
@@ -247,7 +249,7 @@ def main():
     
     if similarity >= success_threshold:
         print(f"\n✓ SUCCESS: Similarity {similarity:.2%} >= {success_threshold:.2%}")
-        print("\nPaddleOCR 3.0+ is working correctly in CPU mode!")
+        print(f"\nPaddleOCR {version} is working correctly in CPU mode!")
         return 0
     else:
         print(f"\n✗ FAILURE: Similarity {similarity:.2%} < {success_threshold:.2%}")
