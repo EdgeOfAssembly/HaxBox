@@ -1,0 +1,52 @@
+.
+├── llm_prep
+│   ├── dot_graphs_doxygen
+│   ├── dot_graphs_pyreverse
+│   └── codebase_structure.txt
+├── pdfocr
+│   ├── engines
+│   │   ├── base.py
+│   │   ├── doctr.py
+│   │   ├── easyocr.py
+│   │   ├── __init__.py
+│   │   ├── paddleocr.py
+│   │   ├── tesseract.py
+│   │   └── trocr.py
+│   ├── cli.py
+│   ├── core.py
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── types.py
+│   └── utils.py
+├── testi
+│   └── PPC_example_data_pages_001-010.txt
+├── tests
+│   ├── conftest.py
+│   ├── __init__.py
+│   ├── test_dummy.py
+│   ├── test_llmprep.py
+│   ├── test_pdfocr.py
+│   ├── test_pdfsplit.py
+│   ├── test_screenrec.py
+│   └── test_stegpng.py
+├── ARCHITECTURE.md
+├── __init__.py
+├── llmprep.1
+├── llmprep.py
+├── pdfocr.1
+├── pdfocr_old.py
+├── pdfocr.py
+├── pdfsplit.1
+├── pdfsplit.py
+├── PPC_example_data_pages_001-010.pdf
+├── PPC_example_data.txt
+├── pyproject.toml
+├── README.md
+├── REFACTOR_VERIFICATION.md
+├── requirements.txt
+├── screenrec.1
+├── screenrec.py
+├── stegpng.1
+└── stegpng.py
+
+8 directories, 42 files

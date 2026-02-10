@@ -1,0 +1,37 @@
+digraph "packages" {
+rankdir=BT
+charset="utf-8"
+"HaxBox" [color="black", label=<HaxBox>, shape="box", style="solid"];
+"HaxBox.llmprep" [color="black", label=<HaxBox.llmprep>, shape="box", style="solid"];
+"HaxBox.pdfocr" [color="black", label=<HaxBox.pdfocr>, shape="box", style="solid"];
+"HaxBox.pdfocr.__main__" [color="black", label=<HaxBox.pdfocr.__main__>, shape="box", style="solid"];
+"HaxBox.pdfocr.cli" [color="black", label=<HaxBox.pdfocr.cli>, shape="box", style="solid"];
+"HaxBox.pdfocr.core" [color="black", label=<HaxBox.pdfocr.core>, shape="box", style="solid"];
+"HaxBox.pdfocr.engines" [color="black", label=<HaxBox.pdfocr.engines>, shape="box", style="solid"];
+"HaxBox.pdfocr.engines.base" [color="black", label=<HaxBox.pdfocr.engines.base>, shape="box", style="solid"];
+"HaxBox.pdfocr.engines.doctr" [color="black", label=<HaxBox.pdfocr.engines.doctr>, shape="box", style="solid"];
+"HaxBox.pdfocr.engines.easyocr" [color="black", label=<HaxBox.pdfocr.engines.easyocr>, shape="box", style="solid"];
+"HaxBox.pdfocr.engines.paddleocr" [color="black", label=<HaxBox.pdfocr.engines.paddleocr>, shape="box", style="solid"];
+"HaxBox.pdfocr.engines.tesseract" [color="black", label=<HaxBox.pdfocr.engines.tesseract>, shape="box", style="solid"];
+"HaxBox.pdfocr.engines.trocr" [color="black", label=<HaxBox.pdfocr.engines.trocr>, shape="box", style="solid"];
+"HaxBox.pdfocr.types" [color="black", label=<HaxBox.pdfocr.types>, shape="box", style="solid"];
+"HaxBox.pdfocr.utils" [color="black", label=<HaxBox.pdfocr.utils>, shape="box", style="solid"];
+"HaxBox.pdfocr_old" [color="black", label=<HaxBox.pdfocr_old>, shape="box", style="solid"];
+"HaxBox.pdfsplit" [color="black", label=<HaxBox.pdfsplit>, shape="box", style="solid"];
+"HaxBox.screenrec" [color="black", label=<HaxBox.screenrec>, shape="box", style="solid"];
+"HaxBox.stegpng" [color="black", label=<HaxBox.stegpng>, shape="box", style="solid"];
+"HaxBox.tests" [color="black", label=<HaxBox.tests>, shape="box", style="solid"];
+"HaxBox.tests.conftest" [color="black", label=<HaxBox.tests.conftest>, shape="box", style="solid"];
+"HaxBox.tests.test_dummy" [color="black", label=<HaxBox.tests.test_dummy>, shape="box", style="solid"];
+"HaxBox.tests.test_llmprep" [color="black", label=<HaxBox.tests.test_llmprep>, shape="box", style="solid"];
+"HaxBox.tests.test_pdfocr" [color="black", label=<HaxBox.tests.test_pdfocr>, shape="box", style="solid"];
+"HaxBox.tests.test_pdfsplit" [color="black", label=<HaxBox.tests.test_pdfsplit>, shape="box", style="solid"];
+"HaxBox.tests.test_screenrec" [color="black", label=<HaxBox.tests.test_screenrec>, shape="box", style="solid"];
+"HaxBox.tests.test_stegpng" [color="black", label=<HaxBox.tests.test_stegpng>, shape="box", style="solid"];
+"HaxBox.pdfocr" -> "HaxBox.pdfocr.cli" [arrowhead="open", arrowtail="none"];
+"HaxBox.pdfocr" -> "HaxBox.pdfocr.core" [arrowhead="open", arrowtail="none"];
+"HaxBox.pdfocr" -> "HaxBox.pdfocr.engines" [arrowhead="open", arrowtail="none"];
+"HaxBox.pdfocr" -> "HaxBox.pdfocr.types" [arrowhead="open", arrowtail="none"];
+"HaxBox.pdfocr" -> "HaxBox.pdfocr.utils" [arrowhead="open", arrowtail="none"];
+"HaxBox.pdfocr.engines.paddleocr" -> "HaxBox.pdfocr.engines.paddleocr" [arrowhead="open", arrowtail="none"];
+}
