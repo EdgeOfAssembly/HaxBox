@@ -179,11 +179,13 @@ def _get_easyocr_reader(
     # First check: Fast path if reader exists with same languages
     # Most calls after initialization take this path, avoiding lock overhead
     global _easyocr_reader, _easyocr_reader_langs
+    if _easyocr_reader is not None and _easyocr_reader_langs == requested_langs:
+        return _easyocr_reader
     
-    # Use lock for all reader access to ensure consistency
+    # Module not loaded or languages changed, acquire lock for initialization
     with _easyocr_lock:
-        # Check if we need to reinitialize with different languages
-        # Reader is cached only if languages match exactly
+        # Second check: Verify another thread didn't initialize while we waited
+        # This is the key to double-checked locking pattern
         if _easyocr_reader is not None and _easyocr_reader_langs == requested_langs:
             return _easyocr_reader
         
@@ -460,6 +462,8 @@ class EasyOCREngine(OCREngine):
         
         # Return plain text: extract text from results and join with newlines
         # Each detected region becomes a separate line in the output
+        # EasyOCR result format: (bbox, text, confidence)
+        # We extract just the text field (index 1)
         text_parts: List[str] = [result[1] for result in results]
         return "\n".join(text_parts)
 
