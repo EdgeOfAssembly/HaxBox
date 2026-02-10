@@ -4,6 +4,12 @@
 
 This document summarizes the validation testing of PaddleOCR in CPU mode on the HaxBox repository test data.
 
+**IMPORTANT: Python Version Requirement**
+- **PaddleOCR 2.x requires Python 3.8-3.12** (does not support Python 3.13+)
+- PaddlePaddle 2.x wheels are not available for Python 3.13 or later
+- PaddlePaddle 3.x supports Python 3.13+ but has a critical CPU bug (see below)
+- **For PaddleOCR support, use Python 3.12 or lower**
+
 ## Latest Test Results (PaddleOCR 2.x)
 
 **Test Configuration:**

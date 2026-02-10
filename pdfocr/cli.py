@@ -26,8 +26,100 @@ except ImportError:
     HAS_PDF2IMAGE = False
 
 
+def _is_engine_available_lightweight(engine: str) -> bool:
+    """Lightweight check for engine availability without importing heavy dependencies.
+    
+    This is used for building CLI choices and help text without triggering
+    import-time side effects or slow imports of optional dependencies.
+    
+    Args:
+        engine: Engine name (e.g., "tesseract", "paddleocr", "trocr-handwritten")
+        
+    Returns:
+        True if the engine's underlying package is available, False otherwise.
+    """
+    # Map engine names to the underlying Python package
+    base_engine = engine.replace("-handwritten", "")
+    module_map = {
+        "tesseract": "pytesseract",
+        "easyocr": "easyocr",
+        "trocr": "transformers",
+        "paddleocr": "paddleocr",
+        "doctr": "doctr",
+    }
+    
+    module_name = module_map.get(base_engine)
+    if module_name is None:
+        # Unknown engine, assume available
+        return True
+    
+    # Special case: paddleocr on Python 3.13+
+    if module_name == "paddleocr" and sys.version_info >= (3, 13):
+        return False
+    
+    try:
+        import importlib.util
+        return importlib.util.find_spec(module_name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
 def main() -> None:
     """Main entry point for the pdfocr CLI."""
+    # Get available OCR engines dynamically based on Python version and installed packages
+    all_engine_choices = ["tesseract", "easyocr", "trocr", "trocr-handwritten", "paddleocr", "doctr"]
+    
+    # Check if PaddleOCR is unavailable due to Python version
+    # Show warning if on Python 3.13+ to explain why paddleocr isn't available
+    paddleocr_unsupported = sys.version_info >= (3, 13)
+    
+    # Filter out engines based on lightweight availability check
+    # This avoids importing heavy dependencies during --help
+    compatible_choices = [
+        e for e in all_engine_choices 
+        if _is_engine_available_lightweight(e)
+    ]
+    
+    # Determine the default engine dynamically
+    # Prefer tesseract if available, otherwise use first available engine
+    if "tesseract" in compatible_choices:
+        default_engine = "tesseract"
+    elif compatible_choices:
+        default_engine = compatible_choices[0]
+    else:
+        # No engines available, fall back to tesseract as default
+        # (will fail later with helpful error message)
+        default_engine = "tesseract"
+    
+    # If no compatible choices, fall back to all choices (argparse will show the list)
+    engine_choices = compatible_choices if compatible_choices else all_engine_choices
+    
+    # Show warning if PaddleOCR is not available due to Python version
+    # Check for quiet flag in a more robust way (handles -q, --quiet, and combined flags like -qv)
+    is_quiet = any(
+        arg == "-q" or arg == "--quiet" or (arg.startswith("-") and "q" in arg and not arg.startswith("--"))
+        for arg in sys.argv
+    )
+    
+    if paddleocr_unsupported and not is_quiet:
+        print(
+            f"Warning: PaddleOCR is not available on Python {sys.version_info.major}.{sys.version_info.minor}.",
+            file=sys.stderr
+        )
+        print(
+            f"         PaddlePaddle 2.x (required for CPU support) only supports Python 3.8-3.12.",
+            file=sys.stderr
+        )
+        print(
+            f"         PaddlePaddle 3.x supports Python 3.13+ but has a critical CPU bug (PaddlePaddle/Paddle#59989).",
+            file=sys.stderr
+        )
+        print(
+            f"         Use Python 3.12 or lower for PaddleOCR support.",
+            file=sys.stderr
+        )
+        print(file=sys.stderr)
+    
     parser = argparse.ArgumentParser(
         description="OCR tool for extracting text from PDFs and images",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -62,9 +154,9 @@ Examples:
     parser.add_argument(
         "-e",
         "--engine",
-        choices=["tesseract", "easyocr", "trocr", "trocr-handwritten", "paddleocr", "doctr"],
-        default="tesseract",
-        help="OCR engine to use (default: tesseract)",
+        choices=engine_choices,
+        default=default_engine,
+        help=f"OCR engine to use (default: {default_engine})",
     )
 
     parser.add_argument(

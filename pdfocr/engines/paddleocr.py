@@ -4,6 +4,16 @@
 This is a ground-up rewrite of the PaddleOCR integration to address persistent
 bugs that have required five separate bug-fix PRs (#9, #11, #12, #13, #14).
 
+PYTHON VERSION REQUIREMENT:
+    **Python 3.8-3.12 ONLY**
+    
+    PaddlePaddle 2.x (required for CPU support) only has wheels for Python 3.8-3.12.
+    Python 3.13+ is NOT supported because:
+    - PaddlePaddle 2.x has no cp313 wheels (only up to cp312)
+    - PaddlePaddle 3.x has Python 3.13 wheels but has a critical CPU bug
+    
+    If you need PaddleOCR, use Python 3.12 or lower.
+
 VERSION SUPPORT:
     Currently using PaddleOCR 2.x (< 3.0) only for CPU and GPU support.
     
@@ -43,6 +53,8 @@ Features:
     - Configurable batch size for memory optimization
 
 Installation:
+    **Requires Python 3.8-3.12 (NOT compatible with Python 3.13+)**
+    
     pip install 'paddleocr<3.0' 'paddlepaddle<3.0'
     
     For GPU support:
@@ -616,7 +628,13 @@ class PaddleOCREngine(OCREngine):
             - Does not verify PaddlePaddle installation (paddleocr depends on it)
             - Does not check version compatibility (handled at init time)
             - Import errors are silently caught (returns False)
+            - Python 3.13+ is not supported (PaddlePaddle 2.x only supports up to 3.12)
         """
+        # Check Python version first - PaddlePaddle 2.x only supports Python <= 3.12
+        # PaddlePaddle 3.x supports 3.13+ but has a critical CPU bug (Paddle#59989)
+        if sys.version_info >= (3, 13):
+            return False
+        
         try:
             import paddleocr  # noqa: F401
             return True
