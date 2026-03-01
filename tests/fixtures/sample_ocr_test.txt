@@ -1,0 +1,16 @@
+The quick brown fox jumps over the lazy dog.
+ABCDEFGHIJKLMNOPQRSTUVWXYZ
+abcdefghijklmnopqrstuvwxyz
+0123456789
+Special: !@#$%^&*()_+-=[]{}|;':",.<>?/
+
+Code sample:
+    def hello_world():
+        print("Hello, World!")
+        return 42
+
+Common OCR confusion pairs:
+- rn vs m (modern → modem)
+- l vs 1 vs I (Illuminate → I11uminate)
+- O vs 0 (October → 0ctober)
+- cl vs d (include → indude)
