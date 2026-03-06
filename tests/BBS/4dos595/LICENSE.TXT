@@ -1,0 +1,71 @@
+
+     JP SOFTWARE PRE-RELEASE LICENSE AGREEMENT AND LIMITED WARRANTY
+
+(1) Introduction.  This agreement explains when and how you may use your
+pre-release copies of JP Software products.
+
+     *  "Software" or "Pre-Release Software" means the JP Software
+        software pre-release products(s) you have obtained for
+        evaluation, including both the software and the associated
+        documentation and other materials;
+
+     *  "we" or "us" means JP Software Inc., a corporation based in
+        Arlington, Massachusetts, USA; and
+
+     *  "you" means the end user of the Pre-Release Software.
+
+(2) Legal Agreement.  This is a legal agreement which allows you, the
+end user, to use the Pre-Release Software under certain terms and
+conditions.  If you cannot agree to abide by what this agreement says
+you should destroy your copy of the Pre-Release Software.
+
+(3) Copyright.  The Pre-Release Software is fully protected by copyright
+under U.S. law and international treaty provisions.
+
+(4) Usage Period.  The Pre-Release Software may be used and tested up to
+the time stated in the signon message when the Software starts, or in
+other documentation which came with the Software.  After that time you
+must either cease using the Software, or purchase a copy.  THE SOFTWARE
+OR PORTIONS OF THE SOFTWARE MAY CEASE TO OPERATE OR MAY NO LONGER BE
+USEFUL AFTER THE TIME SHOWN IN THE SIGNON MESSAGE OR DOCUMENTATION.
+
+(5) Use of the Program.  While you are evaluating or testing the
+Pre-Release Software, you may use it on as many computers as are
+required to perform your evaluation and testing.  Once the evaluation
+and testing period is over and you purchase a released copy of the
+Software, your use of the released copy is limited to the number of
+machines for which you have purchased a license, as stated in our
+standard software license agreement distributed with purchased copies of
+our products.
+
+(6) Making and Distributing Copies of the Pre-Release Software.  You may
+make copies of the Pre-Release Software to give to others, as long as
+you include all of the files that you originally received with your
+copy.  When you give a copy of the Pre-Release Software to another
+person, you agree to inform them that the Pre-Release Software is only
+available for a time-limited evaluation period, that the Software may
+cease to function after that period is over, and that they must purchase
+a copy of the software in order to continue to use it once the
+evaluation and testing period has ended.  You agree not to sell
+Pre-Release Copies of the Program or distribute them to others for any
+kind of compensation or fee under any circumstances.
+
+(7) Operation of the Pre-Release Software.  The Pre-Release Software
+offers powerful capabilities.  If you do not follow our instructions, or
+if you use the Pre-Release Software improperly, you can destroy files or
+cause other damage to your software and data.  AS A PRE-RELEASE VERSION
+THE SOFTWARE MAY CONTAIN BUGS OR OTHER PROBLEMS WHICH WOULD BE LESS
+LIKELY IN A FINAL RELEASE VERSION.  You assume full responsibility for
+the selection and use of the Pre-Release Software to achieve your
+intended results.
+
+(8) WARRANTY STATEMENT:  THE PRE-RELEASE SOFTWARE IS PROVIDED "AS-IS"
+AND WITHOUT WARRANTY OF ANY KIND.
+
+LIMITATION OF LIABILITY:  IN NO EVENT SHALL WE BE LIABLE FOR ANY
+INCIDENTAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES WHATSOEVER ARISING OUT OF
+USE OF THE PRE-RELEASE SOFTWARE OR YOUR RELATIONSHIP WITH US.  SOME
+JURISDICTIONS DO NOT ALLOW EXCLUSION OR LIMITATION OF LIABILITY FOR
+INCIDENTAL OR CONSEQUENTIAL DAMAGES, THEREFORE THE ABOVE LIMITATION MAY
+NOT APPLY TO YOU.
+

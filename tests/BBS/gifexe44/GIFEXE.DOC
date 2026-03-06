@@ -1,0 +1,508 @@
+ 
+  
+ 
+                           G I F E X E 
+ 
+                           Version 4.4
+                          Mar. 15, 1994
+      
+          A Self-Displayer and Slideshow Program for Your        
+                        GIF(tm) Pictures 
+            Copyright 1990,1994 Synergrafix Consulting 
+                       All right reserved.  
+    
+     GIFEXE is produced by: 
+ 
+           Steve Enns                  Synergrafix Consulting  
+        44 Macdermid Cres.    and        44 Macdermid Cres.
+          Saskatoon, Sk.                   Saskatoon, Sk.  
+          Canada S7J 2R2                   Canada S7J 2R2  
+ 
+     Okay, here's the boring stuff, but don't worry, it's better
+     than chewing tinfoil: 
+ 
+
+ACKNOWLEDGEMENTS 
+ 
+     Kudos, thanks, and good karma to John Bridges for the 
+     enlightening information and code contained in his VGAKIT 
+     package.  Trademarks like GIF(tm) and PC(tm) are held by 
+     their respective companies.  
+ 
+
+DISCLAIMER 
+ 
+     The GIFEXE program is provided without warranty of any      
+     kind.  The user of the GIFEXE assumes complete              
+     responsibility for any and all incidental or consequential  
+     damages which may occur during normal or abnormal use of the
+     GIFEXE program.  Use the GIFEXE program at your own risk. 
+ 
+
+LICENSE  
+  
+     The entire GIFEXE package, including the GIFEXE program, 
+     documentation, and sample files are Copyright 1990,1994 
+     Synergrafix Consulting.  All rights reserved.  The          
+     unregistered shareware version of the GIFEXE may be freely 
+     distributed to others by any means, as long the following 
+     (three) conditions are met: 
+ 
+          1) GIFEXE is distributed in a "package" containing     
+          the following files: 
+                              GIFEXE.EXE 
+                              GIFEXE.DOC 
+                              GE-READ.ME
+                              ORDER.FRM
+                              FILE_ID.DIZ
+           
+          2) GIFEXE is not distributed as part of any other      
+          product, except with specific written permission from 
+          the author, Steve Enns.  
+ 
+          3) NO fee of any kind is charged for the GIFEXE        
+          package or for the service of providing the package,   
+          except Computer Bulletin Board Systems, which may      
+          distribute the GIFEXE package even though they may     
+          charge a membership or service fee.   
+
+     You can use the "shareware" version for as long as you 
+     want, even until you're well into your nineties, but you are
+     of course encouraged to send us lots of money, too. (I'm 
+     struggling to pay for my violin lessons, and Dan needs a new
+     fishing rod.)  If you send $8.00 U.S. or more to the "Steve
+     Enns" guy above, you will receive a 5.25" disk (3.5"        
+     disks are $2.00 extra) with the latest registered version of
+     GIFEXE, which has several additional "special effects"
+     features, and can make slideshows from an unlimited number of
+     GIFs. (See below.)  If you send $23.00 U.S. or more, you    
+     will also receive registered versions of the following      
+     programs: 
+ 
+          GIFWARP!       Warp, bend stretch your GIFs for 
+                         interesting effects. 
+ 
+          GIFCLIP        Clip/crop your GIFs, add text or your 
+                         own GIF logo or signature. 
+           
+          GIFSIZE        Resize all or part of your GIFs.  Shrink
+                         an entire screen to the size of an icon.
+ 
+          HCPLAY/HCMAKE  Make 32,768 color (HiColor) FLI-type 
+                         Animations from a series of Targa images.
+                         No more colour limitations in your 
+                         FLI animations.
+
+     (These programs are available in licensed SuperVGA versions
+     for $8.00 U.S. each, or get all three, and the latest 
+     version of GIFEXE for $23.00 U.S. or more.  The registered
+     versions may not be distributed to others, or distributed
+     with, or as part of any other product. HCPLAY/HCMAKE are
+     available for $30.00 U.S.  See ORDER.FRM.) 
+ 
+
+REQUIREMENTS 
+ 
+          GIFEXE requires the following: 
+ 
+               -    PC(tm)/XT(tm)/AT(tm)/386(tm) computer thing 
+               -    About 280K of free RAM 
+               -    DOS 3.0-6.0 (others untested)
+               -    A VGA or SuperVGA card 
+               -    Some GIF(tm) pictures.
+ 
+          and optionally: 
+ 
+               -    GIFEXE supports modes like 640x480, 800x600,
+		    1024x768 with 256 colours on 512K and 1024K
+		    SuperVGA cards from ATI, Ahead, Cirrus, Chips
+		    and Technologies, Everex, OAK, Paradise, Trident,
+                    Tseng, Video7, Compaq, NCR, Genoa and VESA. 
+		    S3 and other Windows accelerator cards that
+                    have a VESA bios or driver are also supported.
+                    VESA is required for some of the special effects. 
+ 
+INSTALLATION 
+ 
+     Copy the GIFEXE program (and this helpful document of 
+     course!) to any directory that you want - perhaps with      
+     your favourite GIF(tm) viewer somewhere in the DOS          
+     path. 
+      
+
+USAGE 
+ 
+     Syntax for GIFEXE is as follows: 
+ 
+          GIFEXE [?] infilename[.GIF] [outfilename[.EXE]] 
+                    /mode=0,1,2..  /autoscale 
+
+     to make a single GIF display program, or 
+ 
+          GIFEXE [?] @listfile [outfilename[.EXE]] 
+                    /stopkey=n  /cycle=0,1,2,3
+
+     to make a slideshow program.  See the GIFLIST example
+     list file, and the GIFLIST.BAT batch file.
+
+     In addition, the following "special effects" options
+     are available in the registered version:
+
+            /fadein /fadeout /dissolve  /delay=secs /noclear
+            /bouncein /bounceout /slidein=c /slideout=c /pass=str
+ 
+     Generally, the options may be used with GIFEXE when you are
+     creating an EXE, or with the EXE that you have already
+     created.  When using a list file to make an EXE slideshow,
+     the special effects options are placed in the list file. (See
+     TUTORIAL below.) Not all options make sense together - only
+     one of the "entrance" effect, and one "exit" effect are allowed
+     for each image.  (Can't fade, bounce and slide out all at once - yet.)
+ 
+ 
+     The options are as follows: 
+ 
+     /mode=code     /mode=0        Ordinary 320x200 mode 
+                    /mode=1        Low resolution SVGA 
+                                        640x400 or 640x350 
+                                        depending on your card. 
+                    /mode=2        Medium resolution 640x480 
+                    /mode=3        High resolution 800x600  
+                    /mode=4        Higher resolution 1024x768 
+                                        is supported on some 
+                                        1024K cards. Try a VESA
+					driver!) 
+                    /mode=5        Higher-still resolution 
+					1280x1024 for VESA.
+                     
+     /autoscale     When this switch is used, the GIF will be 
+                    scaled up to fit on the screen if the screen
+                    resolution is 2 or more times the resolution
+                    of the GIF.  (Just try it with a 320x200 GIF
+                    and a 640x480 screen mode.) 
+     
+
+     When using a list file to make a slideshow:
+
+     /cycle=code    /cycle=0       Play the slideshow once,      
+                                   forward
+                    /cycle=1       Play the slideshow forward,
+                                   continuously
+                    /cycle=2       Play the slideshow backward,
+                                   continuously
+                    /cycle=4       Play the slideshow backward,
+                                   once
+     /stopkey=code  /stopkey=27    Play the show until ESC key   
+                                   (ascii 27) is hit. Default.
+                    /stopkey=32    Play until spacebar is hit
+          
+     And the additional "special effects" available in the
+     registered version: 
+      
+     /fadein        Gradually fade in when displaying the GIF.  
+                    The screen will start black, and gradually 
+                    the pictures will appear as the colors 
+                    brighten. 
+ 
+     /fadeout       After the GIF has been displayed, and the  
+                    program is going to exit after a keypress, 
+                    or a delay (see below) the screen will 
+                    gradually fade to black. 
+ 
+     /dissolve      After the GIF has been displayed, and the 
+                    program is going to exit, the pixels will 
+                    randomly turn black until the entire picture
+                    is gone. 
+ 
+     /delay=secs    After the GIF has been displayed, wait "secs"
+                    seconds before automatically exiting.  The 
+                    program will also exit if a key is pressed 
+                    before the time has expired. 
+
+     /noclear       The screen will not be cleared when the program
+                    exits.  This is useful if you are using GIFEXE
+                    to display an image from a program, and want to
+                    leave the image on the screen after the user
+                    presses the exit key.
+
+     /bouncein      "Bounce" the image onto its position on the 
+                    screen.  This effect works best with images
+                    that are not as tall as the entire screen - 
+                    a GIF image that is 100 pixels high works well
+                    for ordinary VGA 320x200 mode, for example.
+
+     /bounceout     "Bounce" the image off the screen.  See /bouncein
+                    above.
+
+     /slidein=c     "Slide" the image onto (or off of) the screen.
+     /slideout=c    The character "c" is the direction to slide, 
+                    either "l" for left, or "r" for right. If both options
+                    are used for an image (both slidein and slideout),
+                    then the slideout will slide in the opposite direction
+                    of the slidein.  The /slide options currently require
+                    a VESA card or driver.
+ 
+     /pass=str      Display the image only if the user has the correct
+                    password.  The password is specified on the command
+                    line when making the EXE file, and the user is prompted
+                    for the password when the image is about to be displayed.
+                    If the password is not given, or is incorrect, the image
+                    will not be displayed.  This allows "secret" pictures 
+                    in a slideshow, for example.  (The password applies to
+                    only the current picture. If an entire slideshow is to
+                    be protected, then each image will have to specify this
+                    option in the list file.  See below.)  The passwords
+                    are NOT case sensitive - "password" is considered equal
+                    to "PassWord".
+
+     When using a list file to make a slideshow, the listfile    
+     has the following format:
+
+          file1[.gif] /fadein /delay=n /fadeout /mode=m /autoscale /pass=steve
+          file2[.gif] ...
+          .
+          .
+          .
+          filen[.gif] ...
+
+     (One GIF filename with the desired display options on each
+     line of the file.  The unregistered version is limited to five
+     images in a list file.  The registered version should be    
+     able to do several thousand, in case you have the disk space
+     and inclination to make a 100 Megabyte slideshow.)
+
+     In the registered version, the following keys are valid during the
+     slideshow:
+
+          PageDown		Go to the next image in the slideshow
+
+          PageUp		Go back to the last image
+
+          Home			Go back to the first image
+
+          End			Go to the last image
+
+	  Numbers 1-9		Go to image number 'n'. '1' is the
+				first image, '2' for the second...
+
+     More sophisticated user controls are being considered for future
+     versions of GIFEXE.
+                                              
+
+     For examples of GIFEXE usage, try: 
+ 
+          C> GIFEXE                to see the title screen 
+ 
+          C> GIFEXE ?              to see the help/brag screen 
+ 
+          C> GIFEXE house          to make the .EXE HOUSE.EXE 
+                                   from the file HOUSE.GIF   
+ 
+          C> GIFEXE house house2 /autoscale /fadein 
+                                   make the .EXE file HOUSE2.EXE,
+                                   from the GIF(tm) HOUSE.GIF 
+                                   using autoscale and fadein, so
+                                   that HOUSE2 will fadein and 
+                                   autoscale when run. (/fadein 
+                                   available on registered 
+                                   versions only.) 
+ 
+          C> GIFEXE house /delay=10  
+                                   make an EXE, HOUSE.EXE which 
+                                   will display HOUSE.GIF and 
+                                   then wait 10 seconds before 
+                                   exiting. 
+
+          C> GIFEXE @list /cycle=1 /stopkey=32 
+                                   make an EXE, LIST.EXE of the GIF
+                                   in the listfile LIST, which   
+                                   will play in a loop until the
+                                   spacebar (ascii 32) is pressed.
+                                   The first image will fadein,
+                                   wait 2 seconds and then continue
+                                   to the next image. The file   
+                                   LIST contains:
+                         
+                                        gif1 /fadein /delay=2
+                                        gif2
+                                        gif3
+                                        gif4
+
+          C> GIFEXE secret.gif /pass=pokey
+                                   Make SECRET.EXE from SECRET.GIF,
+                                   using the password "POKEY". 
+
+TUTORIAL 
+ 
+     (Nothin' to it!) 
+ 
+     Try out the following with your favourite GIF(tm) picture: 
+ 
+               C> GIFEXE picturename 
+ 
+     GIFEXE will prduce an EXE program with the name 
+     "picturename.EXE"  That's it!   Now just run the program 
+     you've just made: 
+ 
+               C> picturename 
+ 
+     The picture will be displayed on your screen in VGA, or in 
+     SuperVGA if your computer has SuperVGA, and the picture 
+     requires it.  If you want a small (VGA) picture to be 
+     displayed in SuperVGA resolution, try: 
+ 
+               C> picturename /mode=2 
+ 
+     to display the picture in medium SuperVGA resolution.  If 
+     you have the registered version, you can make an EXE that 
+     will "fade in", and "dissolve out": 
+ 
+               C> GIFEXE picturename /fadein /dissolve  
+ 
+     Now when you run picturename, 
+ 
+               C> picturename 
+ 
+     The picture will "fade in", wait for a keypress, and  
+     then "dissolve" and the program will exit.  And even if you
+     didn't use some options when you created picturename.EXE, 
+     you can still use them later.  Try: 
+ 
+               C> picturename /delay=10 /mode=3 
+ 
+     and then the picture will "fade in" using mode 3, wait for 
+     10 seconds or a keypress, and then "dissolve" and exit. 
+     
+     To make an automated slideshow, make the following file
+     (GIFSHOW.LST) with your text editor and your own GIF
+     filenames:
+ 
+           gifname1 /fadein /delay=2 /fadeout
+           gifname2 /delay=2
+           gifname3 /delay=2
+           gifname4 /delay=2
+           gifname5 /delay=2 /fadeout
+
+     Now, use the following GIFEXE command:
+
+          C> GIFEXE @gifshow.lst /cycle=1
+
+     The file GIFSHOW.EXE will be produced, which will display the
+     five images in your slideshow, continuously, until the ESC key
+     is pressed:
+
+          C> gifshow
+
+     You can play the show backwards, until the spacebar is hit by
+     changing the cycle and stopkey parameters:
+
+          C> gifshow /cycle=3 /stopkey=32
+
+     If you omitted the /delay parameters in the list file, each
+     GIF would be displayed until a key was pressed, or the
+     slideshow was aborted with the ESC or /stopkey. 
+
+
+HINTS 
+ 
+     - The EXEs produced by GIFEXE are handy for startup screens
+     on your computer, or title screens for your programs. 
+ 
+     - Since version 3.0, self-running slideshows of GIFs may be
+     produced without using batch files.  If you are using DOS 5.0,
+     there is an easy way to make a list file for slideshows:
+
+          C> dir /b *.gif > listfile
+
+     "listfile" will now contain the names of all the GIFs in the
+     current directory.  You can then just add the desired options
+     to each line of the "listfile", and the make the slideshow:
+
+	  C> gifexe @listfile
+
+
+ERRORS 
+ 
+     - The following self explanatory error messages may be 
+     produced by GIFEXE.  The errors involving the GIF(tm) files
+     will generally be due to disk errors or faulty image files. 
+     Other errors refer to lack of enough free RAM space, or lack
+     of required hardware (VGA). 
+ 
+          Can't initialize VGA graphics! 
+          Unexpected EOF reading GIF! 
+          Premature end of GIF! 
+          Not GIF file! 
+          Invalid GIF format 
+          Error writing GIF! 
+          Buffer allocation failure! 
+           
+
+NOTES 
+ 
+     - GIFEXE reads both GIF87A standard (the original) and      
+     new GIF89A pictures, although most of the extensions in the
+     new GIF89A standard like (silly) text windows are ignored. 
+     The last image in multi-image GIFs will be the one displayed
+     by GIFEXE. 
+  
+
+HISTORY 
+ 
+     - Version 1.0 Completed June.1 1991 
+      
+     - Version 1.2 Completed Sep.15 1991 
+          Some additional cards now supported.  1024x768x256 now
+          supported on some 1024K cards. 
+ 
+     - Version 2.0 Completed Sep.20 1991 
+          Registered version introduced with /fadein /fadeout 
+          /dissolve /delay options.  /autoscale option           
+          added to both versions. 
+
+     - Version 3.0 Completed Oct.1 1991
+          Multiple GIF EXE slideshows may now be produced.
+
+     - Version 3.1 Completed Oct.4 1991
+          Ahhhhhh!!!!  Fixed INCREDIBLY STUPID bug that would cause
+          GIFEXE to abort if the picture was too big for the
+          screen.  Fixed bug that wouldn't allow full pathnames for
+          input files on the command line.
+
+     - Version 3.2 Completed Feb.14 1993
+          Added /noclear option to registered version.
+
+     - Version 4.0 Completed May 20 1993
+	  More graphics support for newer graphics hardware.  Much
+	  better VESA support.  (If GIFEXE dosen't want to do high-
+	  resolution on your video card, try loading a VESA driver!)
+	  S3 and other Windows accelerator cards which support VESA
+	  are now supported.
+	  
+          New /bouncein,  /bounceout and /pass options.
+
+     - Version 4.1 Completed June 9 1993
+          Ahhhhhhhhhhhhhhh!!!!!!! Noooooooo!!!!  Fixed second
+          INCREDIBLY STUPID bug in the VESA support for modes
+          greater than 640x480.
+          
+          Addition of 1280x1024 support for VESA.
+
+     - Version 4.2 Completed Feb. 27 1994
+          Additional VESA compatibility added for really weird
+          video cards... 
+          Added checks for blank lines in slideshow list files
+          that were screwing up some people...
+          Getting ready for more special effects options!
+
+     - Version 4.3 Completed Mar. 7 1994
+          Added some key controls to slideshows in the registered 
+          version. The user can now move backward and foreward
+          through the slideshow.  (See the end of the USAGE section.)
+
+     - Version 4.4 Completed Mar. 15 1994
+          Added /slidein /slideout effects to registered version
+          (which currently require VESA.)
+          
+
+
