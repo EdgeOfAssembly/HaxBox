@@ -1144,7 +1144,8 @@ class TestCLIArchiveScan:
         out = tmp_path / "out"
         result = run_dizdig(str(src), str(out), "--ext", ".mod", "--dry-run")
         assert result.returncode == 0
-        assert "docs" not in result.stdout or "DRY" not in result.stdout
+        # "docs" should not appear as a matched/extracted item (no .mod inside)
+        assert "docs" not in result.stdout
 
     def test_archive_size_filter_by_uncompressed_size(self, tmp_path: Path):
         """--size filter applies to uncompressed content size of archive."""

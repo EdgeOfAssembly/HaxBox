@@ -772,9 +772,11 @@ Examples:
         if archive_path.suffix.lower() not in ARCHIVE_EXTENSIONS:
             continue
 
-        # Skip archives inside the target tree
+        # Skip archives inside the target tree (archives are files so equality can't hold,
+        # but guard anyway for safety)
         try:
-            if target_resolved in archive_path.resolve().parents:
+            arc_resolved = archive_path.resolve()
+            if arc_resolved == target_resolved or target_resolved in arc_resolved.parents:
                 continue
         except (OSError, ValueError):
             continue
@@ -868,7 +870,6 @@ Examples:
                     archive_path.unlink()
             else:
                 print(f"  WARN: extraction failed for {archive_rel}")
-                matched -= 1
 
     # ── Stats ──
 
