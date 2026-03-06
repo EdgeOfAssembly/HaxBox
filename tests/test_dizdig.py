@@ -1090,6 +1090,21 @@ class TestExtractArchive:
         assert ok is True
         assert (dest / "hello.txt").read_bytes() == data
 
+    def test_extract_zip_path_traversal_skipped(self, tmp_path: Path):
+        """Zip entries with path-traversal names are silently skipped (zip-slip protection)."""
+        import zipfile as zf
+        path = tmp_path / "evil.zip"
+        dest = tmp_path / "out"
+        # Craft a zip with a traversal entry and a safe entry
+        with zf.ZipFile(path, "w") as z:
+            z.writestr("safe.txt", b"safe")
+            z.writestr("../escape.txt", b"escaped")
+        ok = dizdig.extract_archive(path, dest)
+        assert ok is True
+        assert (dest / "safe.txt").exists()
+        # The traversal file must NOT have been written outside dest
+        assert not (tmp_path / "escape.txt").exists()
+
 
 # ── Archive CLI integration tests ─────────────────────────────────────────────
 
@@ -1129,7 +1144,7 @@ class TestCLIArchiveScan:
         assert not (out / "mods").exists()
 
     def test_archive_diz_match_extracts(self, tmp_path: Path):
-        """--diz matching FILE_ID.DIZ inside a ZIP triggers extraction."""
+        """--diz matching FILE_ID.DIZ inside a ZIP reports a match (dry-run)."""
         src = tmp_path / "src"
         self._make_zip(src / "util.zip", {"prog.exe": b"EXE"}, diz="4DOS command replacement")
         out = tmp_path / "out"
@@ -1217,7 +1232,7 @@ class TestCLIArchiveScan:
         assert "Archives extracted" in result.stdout
 
     def test_real_4dos595_zip_extracted_by_ext(self, tmp_path: Path):
-        """Real 4dos595.zip is matched by --preset dos-exe and extracted."""
+        """Real 4dos595.zip is matched by --preset dos-exe and reported (dry-run)."""
         if not (BBS_PATH / "4dos595.zip").exists():
             pytest.skip("4dos595.zip not found")
         src = tmp_path / "src"
@@ -1311,3 +1326,21 @@ class TestArchiveEdgeCases:
         assert result.returncode == 0
         assert "match" in result.stdout
         assert "nomatch" not in result.stdout
+
+    def test_tar_gz_compound_suffix_stripped_from_dest_name(self, tmp_path: Path):
+        """pkg.tar.gz extracts to dest/pkg/, not dest/pkg.tar/."""
+        import tarfile, io
+        src = tmp_path / "src"
+        src.mkdir()
+        path = src / "myarchive.tar.gz"
+        data = b"x" * 100
+        with tarfile.open(path, "w:gz") as tf:
+            info = tarfile.TarInfo(name="song.mod")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
+        assert result.returncode == 0
+        # Destination must be out/myarchive/, not out/myarchive.tar/
+        assert (out / "myarchive").is_dir()
+        assert not (out / "myarchive.tar").exists()

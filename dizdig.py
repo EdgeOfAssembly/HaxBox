@@ -447,6 +447,10 @@ def extract_archive(archive_path: Path, dest: Path) -> bool:
     """
     Extract the contents of an archive to the destination directory.
 
+    All member paths are validated to stay within dest (zip-slip / tar traversal
+    protection). Absolute paths, ``..`` segments, and paths that escape dest are
+    silently skipped.
+
     Args:
         archive_path: Path to the archive file.
         dest: Directory to extract into (created if needed).
@@ -457,13 +461,35 @@ def extract_archive(archive_path: Path, dest: Path) -> bool:
     suffix = archive_path.suffix.lower()
     try:
         dest.mkdir(parents=True, exist_ok=True)
+        dest_resolved = dest.resolve()
         if suffix == ".zip":
             with zipfile.ZipFile(archive_path, "r") as zf:
-                zf.extractall(dest)
+                for member in zf.infolist():
+                    # Skip directory entries
+                    if member.filename.endswith("/"):
+                        continue
+                    out_path = (dest / member.filename).resolve()
+                    try:
+                        out_path.relative_to(dest_resolved)
+                    except ValueError:
+                        continue  # path traversal attempt — skip
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    out_path.write_bytes(zf.read(member.filename))
             return True
         elif suffix in (".tar", ".gz", ".bz2", ".xz"):
             with tarfile.open(archive_path, "r:*") as tf:
-                tf.extractall(dest)
+                for member in tf.getmembers():
+                    if not member.isfile():
+                        continue
+                    out_path = (dest / member.name).resolve()
+                    try:
+                        out_path.relative_to(dest_resolved)
+                    except ValueError:
+                        continue  # path traversal attempt — skip
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    f = tf.extractfile(member)
+                    if f is not None:
+                        out_path.write_bytes(f.read())
             return True
         elif suffix in (".lzh", ".lha"):
             return _extract_lzh(archive_path, dest)
@@ -481,12 +507,16 @@ def _extract_lzh(archive_path: Path, dest: Path) -> bool:
         return False
 
     try:
+        dest_resolved = dest.resolve()
         lf = lhafile.LhaFile(str(archive_path))
         for info in lf.infolist():
-            data = lf.read(info.filename)
-            out_path = dest / info.filename
+            out_path = (dest / info.filename).resolve()
+            try:
+                out_path.relative_to(dest_resolved)
+            except ValueError:
+                continue  # path traversal attempt — skip
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_bytes(data)
+            out_path.write_bytes(lf.read(info.filename))
         return True
     except Exception:
         return False
@@ -500,11 +530,19 @@ def _extract_libarchive(archive_path: Path, dest: Path) -> bool:
         return False
 
     try:
+        dest_resolved = dest.resolve()
         with libarchive.file_reader(str(archive_path)) as archive:
             for entry in archive:
                 if entry.isdir:
                     continue
-                out_path = dest / entry.pathname
+                pathname = entry.pathname
+                if not pathname:
+                    continue
+                out_path = (dest / pathname).resolve()
+                try:
+                    out_path.relative_to(dest_resolved)
+                except ValueError:
+                    continue  # path traversal attempt — skip
                 out_path.parent.mkdir(parents=True, exist_ok=True)
                 chunks = [bytes(block) for block in entry.get_blocks()]
                 out_path.write_bytes(b"".join(chunks))
@@ -836,7 +874,7 @@ Examples:
                         excluded = True
                         break
                 elif prefix == "diz":
-                    if arc_diz_content and matches_diz(arc_diz_content, value, args.diz_mode):
+                    if arc_diz_content is not None and matches_diz(arc_diz_content, value, args.diz_mode):
                         excluded = True
                         break
                 elif prefix == "size":
@@ -851,11 +889,20 @@ Examples:
                 continue
 
         matched += 1
-        # Destination: preserve relative sub-path but use archive stem as directory name
-        dest = target / archive_rel.parent / archive_rel.stem
+        # Destination: strip compound archive suffixes (.tar.gz etc.) to get a clean dir name
+        archive_name = archive_rel.name
+        lower_name = archive_name.lower()
+        dest_dir_name = archive_rel.stem
+        for compound in (".tar.gz", ".tar.bz2", ".tar.xz", ".tgz"):
+            if lower_name.endswith(compound):
+                stripped = archive_name[: -len(compound)]
+                if stripped:
+                    dest_dir_name = stripped
+                break
+        dest = target / archive_rel.parent / dest_dir_name
 
         if dest.exists():
-            print(f"  SKIP (exists): {archive_rel.parent / archive_rel.stem}")
+            print(f"  SKIP (exists): {archive_rel.parent / dest_dir_name}")
             skipped += 1
             continue
 
