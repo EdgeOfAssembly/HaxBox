@@ -13,6 +13,7 @@ A collection of useful command-line tools for Linux.
 | **stegpng** | Steganographic file encoder/decoder for PNG/JPEG images |
 | **llmprep** | Prepare codebases for LLM analysis |
 | **screenrec** | Flexible screen and audio recorder |
+| **dizdig** | BBS/FTP archive organizer — sort packages by extensions, FILE_ID.DIZ content, and size |
 
 ## License
 
@@ -330,6 +331,90 @@ llmprep . -q
 
 ---
 
+## dizdig
+
+Tool for BBS sysops, FTP archive maintainers, retro computing collectors, and anyone organizing
+large collections of vintage software packages. Sorts directories containing `FILE_ID.DIZ`
+description files by extension, content, size, with presets and exclude filters.
+No external dependencies — stdlib only, Python 3.8+.
+
+### Basic Usage
+
+```bash
+# Sort tracker music modules into a target folder
+dizdig music/tracker --preset tracker --dry-run
+
+# Sort 4DOS utilities by DIZ content
+dizdig utils/4dos --diz "4dos" --diz-mode text
+
+# Sort small DOS programs, excluding broken ones
+dizdig dos/small --preset dos-exe --size "<= 100KB" --exclude diz:broken
+
+# Copy (don't move) packages containing C++ source
+dizdig src/cpp --ext .cpp .h --copy
+
+# Match by regex in FILE_ID.DIZ
+dizdig releases --diz "v[0-9]+\.[0-9]+" --diz-mode regex
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `TARGET_DIR` | Destination folder (created if absent) |
+| `--ext EXT [EXT ...]` | File extensions to match (e.g. `.mod .s3m`) |
+| `--preset NAME` | Use a preset extension group (see table below) |
+| `--diz PATTERN` | Match text/pattern inside `FILE_ID.DIZ` |
+| `--diz-mode` | `text` (default), `wildcard`, or `regex` |
+| `--size EXPR` | Size filter, quoted (e.g. `">= 10KB"`). Repeatable for ranges. |
+| `--exclude PREFIX:VALUE` | Exclude filter (see Exclude system below). Repeatable. |
+| `--and` | Require BOTH `--ext`/`--preset` AND `--diz` to match (default: OR) |
+| `--copy` | Copy packages instead of moving them |
+| `--dry-run`, `-n` | Show what would happen without moving/copying |
+| `-v`, `--version` | Show version and exit |
+
+### Preset Groups
+
+| Preset | Extensions |
+|--------|-----------|
+| `tracker` | `.mod` `.s3m` `.xm` `.it` `.stm` `.med` `.oct` `.669` `.far` `.mtm` `.ult` `.wow` `.okt` |
+| `music` | `.mp3` `.wav` `.mid` `.snd` `.voc` `.au` `.aif` `.flac` `.ogg` `.wma` `.ra` `.cmf` `.rol` |
+| `graphics` | `.gif` `.bmp` `.pcx` `.tga` `.jpg` `.jpeg` `.png` `.iff` `.lbm` `.ansi` `.ans` `.ico` `.wmf` `.eps` |
+| `source` | `.c` `.cpp` `.h` `.hpp` `.pas` `.asm` `.bas` `.py` `.pl` `.java` `.for` `.cob` `.lsp` |
+| `dos-exe` | `.exe` `.com` `.bat` `.cmd` `.btm` `.pif` |
+| `document` | `.txt` `.doc` `.nfo` `.diz` `.1st` `.me` `.asc` `.pdf` `.rtf` `.htm` `.html` `.man` `.inf` |
+| `archive` | `.zip` `.arj` `.lzh` `.lha` `.rar` `.ace` `.zoo` `.arc` `.gz` `.tar` `.bz2` `.xz` `.7z` `.cab` |
+
+`--preset` and `--ext` can be combined — extensions are unioned.
+
+### Exclude System
+
+Pass one or more `--exclude PREFIX:VALUE` flags to skip matching packages:
+
+| Prefix | Example | Effect |
+|--------|---------|--------|
+| `ext` | `--exclude ext:.exe` | Skip packages that contain a file with that extension |
+| `diz` | `--exclude diz:broken` | Skip packages whose `FILE_ID.DIZ` matches that text/pattern |
+| `size` | `--exclude size:">1MB"` | Skip packages matching the size expression |
+
+Any matching exclude rule skips the package — rules are OR'd together.
+
+### Size Filter Syntax
+
+Size expressions use the same operators as `--size`:
+
+```
+OPERATOR VALUE[UNIT]
+```
+
+- **Operators:** `<` `>` `<=` `>=` `==` `!=`
+- **Units:** `KB`, `MB`, `GB`, `TB` (or nothing for raw bytes)
+- **Quoting required** on the shell: `--size ">= 10KB"` not `--size >= 10KB`
+- **Decimal values** supported: `--size "<= 1.5MB"`
+- **Multiple `--size`** flags combine as AND (range): `--size ">= 10KB" --size "<= 1MB"`
+
+---
+
 ## screenrec
 
 Flexible screen and audio recorder with multiple capture modes.
@@ -448,6 +533,19 @@ llmprep /path/to/project
 cat llm_prep/codebase_overview.md | xclip -selection clipboard
 ```
 
+### Workflow: Organize BBS Archive
+
+```bash
+# Sort tracker music modules (preview first)
+dizdig music/tracker --preset tracker --dry-run
+
+# Sort 4DOS utilities by DIZ content
+dizdig utils/4dos --diz "4dos" --diz-mode text
+
+# Sort small DOS programs, excluding broken ones
+dizdig dos/small --preset dos-exe --size "<= 100KB" --exclude diz:broken
+```
+
 ---
 
 ## Author
@@ -471,3 +569,6 @@ Email: haxbox2000@gmail.com
 
 ### v1.0.0 (screenrec)
 - Initial release: Multiple capture modes, audio recording
+
+### v2.0.0 (dizdig)
+- Initial release: Extension/DIZ matching, presets, --exclude system, size filters, copy mode

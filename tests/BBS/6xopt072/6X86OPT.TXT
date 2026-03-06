@@ -1,0 +1,205 @@
+                      
+                      ==================================
+                                   6x86opt
+                      Cyrix/IBM 6x86 processor optimizer
+                      ==================================
+                            v0.72 Mikael Johansson
+
+    
+    *WHAT THIS PROGRAM DOES*
+    ------------------------
+    This program optimizes the Cyrix/IBM 6x86 (M1) processor.
+
+    
+    *HOW IT DOES IT*
+    ----------------
+    By setting/unsetting the appropriate bits on the CPU. 
+    The following bits are set:
+
+    bit     | reg:bit | why
+    ------------------------------------------------------------------------
+    NO_LOCK | CCR1:4  | "With NO_LOCK set, previously noncacheable locked
+            |         |  cycles are executed as unlocked cycles and,
+            |         |  therefore, may be cached. This results in higher 
+            |         |  CPU performance."
+            |         | The reason the bit is not set as default is because
+            |         | software that requires locked cycles might exist. I
+            |         | have never had any problems with this. 
+    ------------------------------------------------------------------------
+    WL      | RCR7:2  | This one is related to the one above. It enables 
+            |         | weak locking for the memory region specified by  
+            |         | ARR7, i.e. all memory. I am not sure if this is
+            |         | necessary, as my benchmark results vary. It does no
+            |         | harm however.
+    ------------------------------------------------------------------------
+    DTE_EN  | CCR4:4  | "DTE_EN allows Directory Table Entries (DTE) to be
+            |         |  cached on the 6x86 microprocessor. This provides a
+            |         |  performance improvement for some applications that
+            |         |  access and modify the page table frequently."
+    ------------------------------------------------------------------------
+    WT_ALLOC| CCR5:0  | "Write Allocate (WT_ALLOC) allows L1 cache write 
+            |         |  misses to cause a cache line allocation. This
+            |         |  feature improves the L1 cache hit rate resulting
+            |         |  in higher performance especially for Windows
+            |         |  applications."
+    ------------------------------------------------------------------------
+    SUSP_HLT| CCR2:3  | If this bit is set, the HLT instruction causes the 
+            |         | CPU to enter low power suspend mode. This works OK
+            |         | at least running Linux, don't know about DOS. But 
+            |         | anything that might result in the 6x86 running 
+            |         | cooler is worth trying... Doesn't affect performance
+    ------------------------------------------------------------------------
+        All quotations above are taken from the 'IBM 6x86 Microprocessor 
+        BIOS Writers Guide'
+    
+    The following bits are unset:
+
+    bit | reg:bit | why 
+    ------------------------------------------------------------------------
+    CD  | CR0:30  | When 'Cache Disable' is set, the cache is disabled(!) 
+        |         | Naturally the cache should be enabled. I do not believe 
+        |         | that this bit is ever set, but you never know.
+    ------------------------------------------------------------------------
+    NW  | CR0:29  | When 'No Write Back' is set, the L1 cache operates in 
+        |         | Write Through mode. By unsetting the bit the cache 
+        |         | strategy will be set to Write Back.
+    ------------------------------------------------------------------------
+        The above bits are not affected if the -nowb parameter is defined
+
+        6x86opt also configures the Branch Target Buffer (BTB) to store 
+    target addresses for both near and far Change-Of-Flow instructions 
+    (COFs). This also results in a performance improvement.
+
+        No other bits are affected. (Except that MAPEN always is set to 0000
+    after optimizing which it should be, and ARREN is set during execution) 
+
+    
+    *USING THE PROGRAM*
+    -------------------
+    6x86opt can be invoked without any parameters for default optimization.
+    You can also define three different command line parameters:
+        -nowb   (-n) ; Do not enable caching and WriteBack. Note that this 
+                       parameter doesn't disable these, just leaves them be.
+        -defbtb (-d) ; Does not change the BTB configuration. As above, this
+                       does not put BTB in near-only mode.
+        -force  (-f) ; Forces execution of the optimization even if 6x86opt
+                       does not detect a 6x86 CPU. If for example the VIPERM
+                       bit (CCR5:6) is set the identification will fail.
+        The parameters in parentheses are abbreviations for the parameters.
+    If an unknown parameter is defined on the command line, 6x86opt will show
+    some info about itself.
+        The processor is restored to default state on system reset. So it is
+    probably a good idea to invoke 6x86opt from your AUTOEXEC.BAT file.
+
+
+    *EXIT CODES*
+    ------------
+    The following exit codes can be generated:
+        0 : 6x86opt (at least thinks it) encountered no problems
+        1 : 6x86opt was invoked with some unknown parameter(s)
+        2 : 6x86opt did not detect a 6x86 CPU (and -force is not defined)
+    Any other codes _should_ never be generated.
+    
+    
+    *WHY THIS PROGRAM EXISTS*
+    -------------------------
+    Because I could find no good optimizer for the processor anywhere. The
+    only one I found was IBM:s M1OPT. This program however changes every
+    bit in the CCR:s and everywhere else according to some model machine
+    of their own. For example all Power Management features are disabled
+    even if they are set before. This program also does not set NO_LOCK.
+    
+    
+    *WINBENCH PROCESSOR SCORES*
+    ---------------------------
+    The processor suites in WinBench gives different results every test run, 
+    and the second run is usually poorer than the first. To get reliable 
+    results, run these (and other) testsuites right after booting the system
+    with either unoptimized or optimized configuration. You will find that
+    the processor tests are not affected noticeably, as these tests 
+    apparently has no use of the optimized settings. Graphics scores should
+    increase. So, the performance increase is dependent on the application. 
+        The performance increase is also dependent on how the BIOS sets the
+    bits on boot. If the BIOS "sets'em all" itself there can of course be no
+    improvement. I have not heard of any such systems. BIOS:es that does not
+    support the 6x86 very well will have the highest improvement. In no case
+    should 6x86 decrease overall performance.
+    
+    
+    *CPUIDEN.EXE*
+    -------------
+    This program (should have been included in the distribution package)
+    toggles/sets/unsets the state of the CPUIDEN bit in CCR4:7. When set, the 
+    CPUID instruction can be executed. Programs that understand this can get
+    additional information about the processor through this instruction.
+        Some programs misinterpret this information, and it might be better
+    if these programs are left without the additional info.
+        Setting the bit causes for example Win95 to identify the CPU as a
+    Pentium (which is not necessarily a bad thing).
+        When invoked without parameters CPUIDEN toggles the state of the bit.
+        The following command line parameters are recognized:
+        -set   (-s) ; Sets the bit
+        -unset (-u) ; Unsets the bit
+        -force (-f) ; Forces execution even when CPUIDEN does not detect a
+                      6x86 CPU.
+
+    
+    *PUBLIC DOMAIN* 
+    ---------------
+    Everything in this package is Public Domain. The only restriction is that
+    all files must be included when distributing the package, and that they 
+    are not modified. The following files are part of the package:
+
+        6X86OPT.EXE  6176 bytes  6x86opt, the optimizer
+        6X86OPT.TXT  9857 bytes  this textfile
+        CPUIDEN.EXE  6000 bytes  CPUID instruction toggler
+    
+    (I will of course not object if you for some reason feel urged to send me 
+     a postcard, money or other nice things:)
+    
+
+    *CONTACTING THE AUTHOR*
+    -----------------------
+    If you encounter any bugs in the program, have some suggestions, or 
+    especially if you know of any other optimization tricks for the 6x86, I 
+    would be happy to receive mail from you.
+        
+        e-mail:
+            mpjohans@kumpu.helsinki.fi
+            or:
+            Mikael.Johansson@Helsinki.FI
+        
+        For everyone who would like to contact me using the traditional
+    postal services: 
+            Mikael Johansson
+            Kitarakuja 3C 220
+            00420 Helsinki
+            FINLAND
+    
+    
+    *VERSION HISTORY*
+    -----------------
+        v0.64 : First released version. (5.11.1996)
+
+        v0.64b: Some comments added to the document. (22.11.96)
+
+        v0.72 : Command line parameters added.
+                The program now unsets the CD and NW bits in CR0.
+                The document was clarified.
+                
+    
+    *TO BE DONE*
+    ------------
+    Windows NT support.
+    Anything else that sounds good.
+    
+    
+    *THE ULTIMATE HEAVY METAL BAND*
+    -------------------------------
+    Mercyful Fate
+
+    
+    *THINGS*
+    --------
+    You use all files in this package entirely at your own risk.   
+    Cyrix and IBM have copyright on what they have.
