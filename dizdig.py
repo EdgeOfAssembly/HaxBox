@@ -9,8 +9,9 @@ Move (or copy) entire package directories based on:
 - Preset extension groups for common file categories
 - Any combination with AND/OR logic
 - Flexible --exclude system for negated matching
+- Archive peeking: scan inside ZIP/TAR/LZH/ARJ/RAR archives without extracting
 
-Version: 2.0.0
+Version: 3.0.0
 """
 
 from __future__ import annotations
@@ -20,12 +21,14 @@ import fnmatch
 import re
 import shutil
 import sys
+import tarfile
 import time
+import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 
-VERSION: str = "2.0.0"
+VERSION: str = "3.0.0"
 
 # ── Preset extension groups ──────────────────────────────────────────────────
 
@@ -230,6 +233,324 @@ def check_excludes(
     return False
 
 
+# ── Archive extensions ───────────────────────────────────────────────────────
+
+ARCHIVE_EXTENSIONS: List[str] = [
+    ".zip",
+    ".arj", ".lzh", ".lha", ".rar", ".ace", ".zoo", ".arc", ".7z", ".cab",
+    ".tar", ".gz", ".bz2", ".xz",
+]
+
+
+def get_supported_formats() -> Dict[str, bool]:
+    """
+    Return a dictionary indicating which archive formats are supported.
+
+    ZIP and TAR/GZ/BZ2/XZ use the stdlib and are always available.
+    LZH/LHA requires the optional 'lhafile' package.
+    ARJ/RAR/7Z/ACE and others require the optional 'libarchive-c' package.
+
+    Returns:
+        Dict mapping format group names to bool (True = supported).
+    """
+    formats: Dict[str, bool] = {
+        "zip": True,
+        "tar": True,
+    }
+
+    try:
+        import lhafile as _lhafile  # noqa: F401
+        formats["lzh"] = True
+    except ImportError:
+        formats["lzh"] = False
+
+    try:
+        import libarchive as _libarchive  # noqa: F401
+        formats["libarchive"] = True
+    except ImportError:
+        formats["libarchive"] = False
+
+    return formats
+
+
+def peek_archive(
+    archive_path: Path,
+) -> Optional[Tuple[Optional[str], Set[str], int]]:
+    """
+    Peek inside an archive without fully extracting it.
+
+    Reads the file list, finds FILE_ID.DIZ (case-insensitive), collects
+    file extensions, and calculates the total uncompressed size.
+
+    Args:
+        archive_path: Path to the archive file.
+
+    Returns:
+        Tuple of (diz_content_or_None, set_of_extensions, total_uncompressed_bytes)
+        or None if the archive cannot be read.
+    """
+    suffix = archive_path.suffix.lower()
+
+    try:
+        if suffix == ".zip":
+            return _peek_zip(archive_path)
+        elif suffix in (".tar", ".gz", ".bz2", ".xz"):
+            return _peek_tar(archive_path)
+        elif suffix in (".lzh", ".lha"):
+            return _peek_lzh(archive_path)
+        else:
+            return _peek_libarchive(archive_path)
+    except Exception:
+        return None
+
+
+def _peek_zip(
+    archive_path: Path,
+) -> Optional[Tuple[Optional[str], Set[str], int]]:
+    """Peek inside a ZIP archive using stdlib zipfile."""
+    try:
+        with zipfile.ZipFile(archive_path, "r") as zf:
+            diz_content: Optional[str] = None
+            extensions: Set[str] = set()
+            total_size: int = 0
+
+            for info in zf.infolist():
+                name = info.filename
+                # Skip directory entries
+                if name.endswith("/"):
+                    continue
+                basename = Path(name).name
+                ext = Path(name).suffix.lower()
+                if ext:
+                    extensions.add(ext)
+                total_size += info.file_size
+
+                if basename.upper() == "FILE_ID.DIZ" and diz_content is None:
+                    try:
+                        raw = zf.read(info.filename)
+                        diz_content = raw.decode("cp437", errors="ignore")
+                    except Exception:
+                        pass
+
+            return (diz_content, extensions, total_size)
+    except (zipfile.BadZipFile, Exception):
+        return None
+
+
+def _peek_tar(
+    archive_path: Path,
+) -> Optional[Tuple[Optional[str], Set[str], int]]:
+    """Peek inside a TAR/GZ/BZ2/XZ archive using stdlib tarfile."""
+    try:
+        with tarfile.open(archive_path, "r:*") as tf:
+            diz_content: Optional[str] = None
+            extensions: Set[str] = set()
+            total_size: int = 0
+
+            for member in tf.getmembers():
+                if not member.isfile():
+                    continue
+                basename = Path(member.name).name
+                ext = Path(member.name).suffix.lower()
+                if ext:
+                    extensions.add(ext)
+                total_size += member.size
+
+                if basename.upper() == "FILE_ID.DIZ" and diz_content is None:
+                    try:
+                        f = tf.extractfile(member)
+                        if f is not None:
+                            raw = f.read()
+                            diz_content = raw.decode("cp437", errors="ignore")
+                    except Exception:
+                        pass
+
+            return (diz_content, extensions, total_size)
+    except Exception:
+        return None
+
+
+def _peek_lzh(
+    archive_path: Path,
+) -> Optional[Tuple[Optional[str], Set[str], int]]:
+    """Peek inside an LZH/LHA archive using the optional lhafile package."""
+    try:
+        import lhafile
+    except ImportError:
+        return None
+
+    try:
+        lf = lhafile.LhaFile(str(archive_path))
+        diz_content: Optional[str] = None
+        extensions: Set[str] = set()
+        total_size: int = 0
+
+        for info in lf.infolist():
+            name = info.filename
+            basename = Path(name).name
+            ext = Path(name).suffix.lower()
+            if ext:
+                extensions.add(ext)
+            total_size += info.file_size
+
+            if basename.upper() == "FILE_ID.DIZ" and diz_content is None:
+                try:
+                    raw = lf.read(name)
+                    diz_content = raw.decode("cp437", errors="ignore")
+                except Exception:
+                    pass
+
+        return (diz_content, extensions, total_size)
+    except Exception:
+        return None
+
+
+def _peek_libarchive(
+    archive_path: Path,
+) -> Optional[Tuple[Optional[str], Set[str], int]]:
+    """Peek inside an archive using the optional libarchive-c package."""
+    try:
+        import libarchive
+    except ImportError:
+        return None
+
+    try:
+        diz_content: Optional[str] = None
+        extensions: Set[str] = set()
+        total_size: int = 0
+
+        with libarchive.file_reader(str(archive_path)) as archive:
+            for entry in archive:
+                if entry.isdir:
+                    continue
+                name = entry.pathname
+                basename = Path(name).name
+                ext = Path(name).suffix.lower()
+                if ext:
+                    extensions.add(ext)
+                total_size += entry.size
+
+                if basename.upper() == "FILE_ID.DIZ" and diz_content is None:
+                    try:
+                        chunks = [bytes(block) for block in entry.get_blocks()]
+                        raw = b"".join(chunks)
+                        diz_content = raw.decode("cp437", errors="ignore")
+                    except Exception:
+                        pass
+
+        return (diz_content, extensions, total_size)
+    except Exception:
+        return None
+
+
+def extract_archive(archive_path: Path, dest: Path) -> bool:
+    """
+    Extract the contents of an archive to the destination directory.
+
+    All member paths are validated to stay within dest (zip-slip / tar traversal
+    protection). Absolute paths, ``..`` segments, and paths that escape dest are
+    silently skipped.
+
+    Args:
+        archive_path: Path to the archive file.
+        dest: Directory to extract into (created if needed).
+
+    Returns:
+        True on success, False on failure.
+    """
+    suffix = archive_path.suffix.lower()
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        dest_resolved = dest.resolve()
+        if suffix == ".zip":
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                for member in zf.infolist():
+                    # Skip directory entries
+                    if member.filename.endswith("/"):
+                        continue
+                    out_path = (dest / member.filename).resolve()
+                    try:
+                        out_path.relative_to(dest_resolved)
+                    except ValueError:
+                        continue  # path traversal attempt — skip
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    out_path.write_bytes(zf.read(member.filename))
+            return True
+        elif suffix in (".tar", ".gz", ".bz2", ".xz"):
+            with tarfile.open(archive_path, "r:*") as tf:
+                for member in tf.getmembers():
+                    if not member.isfile():
+                        continue
+                    out_path = (dest / member.name).resolve()
+                    try:
+                        out_path.relative_to(dest_resolved)
+                    except ValueError:
+                        continue  # path traversal attempt — skip
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    f = tf.extractfile(member)
+                    if f is not None:
+                        out_path.write_bytes(f.read())
+            return True
+        elif suffix in (".lzh", ".lha"):
+            return _extract_lzh(archive_path, dest)
+        else:
+            return _extract_libarchive(archive_path, dest)
+    except Exception:
+        return False
+
+
+def _extract_lzh(archive_path: Path, dest: Path) -> bool:
+    """Extract an LZH/LHA archive using the optional lhafile package."""
+    try:
+        import lhafile
+    except ImportError:
+        return False
+
+    try:
+        dest_resolved = dest.resolve()
+        lf = lhafile.LhaFile(str(archive_path))
+        for info in lf.infolist():
+            out_path = (dest / info.filename).resolve()
+            try:
+                out_path.relative_to(dest_resolved)
+            except ValueError:
+                continue  # path traversal attempt — skip
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_bytes(lf.read(info.filename))
+        return True
+    except Exception:
+        return False
+
+
+def _extract_libarchive(archive_path: Path, dest: Path) -> bool:
+    """Extract an archive using the optional libarchive-c package."""
+    try:
+        import libarchive
+    except ImportError:
+        return False
+
+    try:
+        dest_resolved = dest.resolve()
+        with libarchive.file_reader(str(archive_path)) as archive:
+            for entry in archive:
+                if entry.isdir:
+                    continue
+                pathname = entry.pathname
+                if not pathname:
+                    continue
+                out_path = (dest / pathname).resolve()
+                try:
+                    out_path.relative_to(dest_resolved)
+                except ValueError:
+                    continue  # path traversal attempt — skip
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                chunks = [bytes(block) for block in entry.get_blocks()]
+                out_path.write_bytes(b"".join(chunks))
+        return True
+    except Exception:
+        return False
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -239,7 +560,11 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         prog="dizdig",
-        description="Dig through directories, sort packages by content, extensions, and metadata",
+        description=(
+            "Move or copy packages from INPUT_DIR to TARGET_DIR based on "
+            "extensions, FILE_ID.DIZ content, size, and presets. "
+            "Archives (ZIP, TAR, LZH, ARJ, RAR, …) are always peeked inside."
+        ),
         formatter_class=argparse.RawTextHelpFormatter,
         epilog=f"""
 Presets:
@@ -251,20 +576,22 @@ Exclude system (prefix:value):
     size:<expression>  Exclude packages matching this size condition
 
 Examples:
-  %(prog)s music/tracker --ext .mod .s3m .xm .it .stm
-  %(prog)s music/tracker --preset tracker
-  %(prog)s music/4dos --diz "4dos" --diz-mode text
-  %(prog)s programming/cpp --ext .cpp --diz "windows" --and
-  %(prog)s cracks --diz "*crack*" --diz-mode wildcard --dry-run
-  %(prog)s music/versions --diz "5\\.[0-9]+" --diz-mode regex
-  %(prog)s small_stuff --size "<= 10KB"
-  %(prog)s mid_range --size ">= 10KB" --size "<= 1MB"
-  %(prog)s cleaned --preset tracker --exclude ext:.exe --exclude diz:broken
-  %(prog)s sorted --ext .mod --exclude size:">1MB" --copy
+  %(prog)s inbox/ tracker/ --ext .mod .s3m .xm .it .stm
+  %(prog)s inbox/ tracker/ --preset tracker
+  %(prog)s inbox/ utils/   --diz "4dos" --diz-mode text
+  %(prog)s inbox/ cpp/     --ext .cpp --diz "windows" --and
+  %(prog)s inbox/ cracked/ --diz "*crack*" --diz-mode wildcard --dry-run
+  %(prog)s inbox/ rel/     --diz "5\\.[0-9]+" --diz-mode regex
+  %(prog)s inbox/ small/   --size "<= 10KB"
+  %(prog)s inbox/ mid/     --size ">= 10KB" --size "<= 1MB"
+  %(prog)s inbox/ tracker/ --preset tracker --exclude ext:.exe --exclude diz:broken
+  %(prog)s inbox/ sorted/  --ext .mod --exclude size:">1MB" --copy
         """,
     )
-    parser.add_argument("target", nargs="?", metavar="TARGET_DIR",
-                        help="Target folder (required unless -v/--version)")
+    parser.add_argument("input_dir", metavar="INPUT_DIR",
+                        help="Source folder to scan for packages and archives")
+    parser.add_argument("target_dir", metavar="TARGET_DIR",
+                        help="Destination folder (created if absent)")
     parser.add_argument("--ext", nargs="*", metavar="EXT",
                         help="File extensions to match (e.g. .mod .s3m .cpp)")
     parser.add_argument("--preset", metavar="NAME",
@@ -282,7 +609,7 @@ Examples:
     parser.add_argument("--and", action="store_true", dest="and_logic",
                         help="Require BOTH extension AND DIZ match (default: OR)")
     parser.add_argument("--copy", action="store_true",
-                        help="Copy packages instead of moving them")
+                        help="Copy packages/archives instead of moving them")
     parser.add_argument("--dry-run", "-n", action="store_true",
                         help="Only show what would happen, don't move/copy anything")
     parser.add_argument("-v", "--version", action="version",
@@ -295,9 +622,6 @@ Examples:
         sys.exit(0)
 
     args = parser.parse_args()
-
-    if not args.target:
-        parser.error("the following arguments are required: TARGET_DIR")
 
     # ── Resolve extensions (direct + preset) ──
 
@@ -346,8 +670,14 @@ Examples:
 
     # ── Setup ──
 
-    target: Path = Path(args.target)
+    input_dir: Path = Path(args.input_dir)
+    target: Path = Path(args.target_dir)
+
+    if not input_dir.is_dir():
+        parser.error(f"INPUT_DIR does not exist or is not a directory: {input_dir}")
+
     target.mkdir(parents=True, exist_ok=True)
+    target_resolved = target.resolve()
 
     action = "Copying" if args.copy else "Moving"
     logic_str = "AND" if args.and_logic else "OR"
@@ -355,8 +685,23 @@ Examples:
     size_display = " AND ".join(s[2] for s in size_filters) if size_filters else "none"
     exclude_display = ", ".join(f"{p}:{v}" for p, v in excludes) if excludes else "none"
 
+    # ── Archive format support line ──
+
+    fmt = get_supported_formats()
+    fmt_parts = ["ZIP, TAR/GZ/BZ2/XZ (built-in)"]
+    if fmt.get("lzh"):
+        fmt_parts.append("LZH/LHA (lhafile)")
+    else:
+        fmt_parts.append("LZH/LHA (install lhafile)")
+    if fmt.get("libarchive"):
+        fmt_parts.append("ARJ/RAR/7Z/ACE (libarchive)")
+    else:
+        fmt_parts.append("ARJ/RAR/7Z/ACE (install libarchive-c)")
+    archive_fmt_display = "; ".join(fmt_parts)
+
     print(f"dizdig v{VERSION}\n"
           f"{'─' * 50}\n"
+          f"Input:        {input_dir}\n"
           f"Target:       {target}\n"
           f"Action:       {action}\n"
           f"Extensions:   {ext_display}\n"
@@ -364,30 +709,32 @@ Examples:
           f"Size filter:  {size_display}\n"
           f"Excludes:     {exclude_display}\n"
           f"Logic:        {logic_str}\n"
+          f"Archives:     {archive_fmt_display}\n"
           f"Mode:         {'DRY-RUN' if args.dry_run else 'LIVE'}\n"
           f"{'─' * 50}\n")
 
-    # ── Scan ──
+    # ── Scan directories ──
 
     start_time = time.time()
     scanned: int = 0
     matched: int = 0
     moved: int = 0
     skipped: int = 0
+    archives_scanned: int = 0
+    archives_extracted: int = 0
 
-    for diz_path in Path(".").rglob("*FILE_ID.DIZ"):
+    for diz_path in input_dir.rglob("*FILE_ID.DIZ"):
         pkg_dir = diz_path.parent
         scanned += 1
 
         try:
-            rel = pkg_dir.relative_to(Path("."))
+            rel = pkg_dir.relative_to(input_dir)
         except ValueError:
             continue
 
         # Skip if already inside target tree
         try:
             pkg_resolved = pkg_dir.resolve()
-            target_resolved = target.resolve()
             if pkg_resolved == target_resolved or target_resolved in pkg_resolved.parents:
                 continue
         except (OSError, ValueError):
@@ -444,8 +791,8 @@ Examples:
             skipped += 1
             continue
 
-        prefix = "[DRY] " if args.dry_run else ""
-        print(f"  {prefix}{action}: {rel} → {dest}")
+        dry_prefix = "[DRY] " if args.dry_run else ""
+        print(f"  {dry_prefix}{action}: {rel} → {dest}")
 
         if not args.dry_run:
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -455,17 +802,135 @@ Examples:
                 pkg_dir.rename(dest)
             moved += 1
 
+    # ── Scan archives ──
+
+    for archive_path in input_dir.rglob("*"):
+        if not archive_path.is_file():
+            continue
+        if archive_path.suffix.lower() not in ARCHIVE_EXTENSIONS:
+            continue
+
+        # Skip archives inside the target tree (archives are files so equality can't hold,
+        # but guard anyway for safety)
+        try:
+            arc_resolved = archive_path.resolve()
+            if arc_resolved == target_resolved or target_resolved in arc_resolved.parents:
+                continue
+        except (OSError, ValueError):
+            continue
+
+        try:
+            archive_rel = archive_path.relative_to(input_dir)
+        except ValueError:
+            continue
+
+        archives_scanned += 1
+
+        peek = peek_archive(archive_path)
+        if peek is None:
+            continue
+
+        arc_diz_content, arc_extensions, arc_total_size = peek
+
+        # ── Check extensions inside archive ──
+
+        arc_has_ext = False
+        if exts:
+            arc_has_ext = bool(exts & arc_extensions)
+
+        # ── Check FILE_ID.DIZ content inside archive ──
+
+        arc_has_diz = False
+        if args.diz and arc_diz_content is not None:
+            arc_has_diz = matches_diz(arc_diz_content, args.diz, args.diz_mode)
+
+        # ── Inclusion decision ──
+
+        if args.and_logic:
+            arc_match = (
+                (arc_has_ext and arc_has_diz) if (exts and args.diz)
+                else (arc_has_ext or arc_has_diz)
+            )
+        else:
+            arc_match = (arc_has_ext or arc_has_diz) if (exts or args.diz) else False
+
+        if not arc_match:
+            continue
+
+        # ── Check size filters against uncompressed size ──
+
+        if size_filters:
+            if not all(op(arc_total_size, val) for op, val, _ in size_filters):
+                continue
+
+        # ── Check excludes ──
+
+        if excludes:
+            excluded = False
+            for prefix, value in excludes:
+                if prefix == "ext":
+                    chk_ext = value.lower() if value.startswith(".") else f".{value.lower()}"
+                    if chk_ext in arc_extensions:
+                        excluded = True
+                        break
+                elif prefix == "diz":
+                    if arc_diz_content is not None and matches_diz(arc_diz_content, value, args.diz_mode):
+                        excluded = True
+                        break
+                elif prefix == "size":
+                    try:
+                        op_func, byte_val, _ = parse_size_expr(value)
+                        if op_func(arc_total_size, byte_val):
+                            excluded = True
+                            break
+                    except ValueError:
+                        pass
+            if excluded:
+                continue
+
+        matched += 1
+        # Destination: strip compound archive suffixes (.tar.gz etc.) to get a clean dir name
+        archive_name = archive_rel.name
+        lower_name = archive_name.lower()
+        dest_dir_name = archive_rel.stem
+        for compound in (".tar.gz", ".tar.bz2", ".tar.xz", ".tgz"):
+            if lower_name.endswith(compound):
+                stripped = archive_name[: -len(compound)]
+                if stripped:
+                    dest_dir_name = stripped
+                break
+        dest = target / archive_rel.parent / dest_dir_name
+
+        if dest.exists():
+            print(f"  SKIP (exists): {archive_rel.parent / dest_dir_name}")
+            skipped += 1
+            continue
+
+        dry_prefix = "[DRY] " if args.dry_run else ""
+        arc_label = "Extract+copy" if args.copy else "Extract+move"
+        print(f"  {dry_prefix}{arc_label}: {archive_rel} → {dest}")
+
+        if not args.dry_run:
+            if extract_archive(archive_path, dest):
+                archives_extracted += 1
+                if not args.copy:
+                    archive_path.unlink()
+            else:
+                print(f"  WARN: extraction failed for {archive_rel}")
+
     # ── Stats ──
 
     elapsed = time.time() - start_time
     action_past = "Copied" if args.copy else "Moved"
 
     print(f"\n{'─' * 50}\n"
-          f"Scanned:  {scanned:,} packages\n"
-          f"Matched:  {matched:,}\n"
-          f"{action_past}:   {moved:,}\n"
-          f"Skipped:  {skipped:,} (already existed)\n"
-          f"Time:     {elapsed:.1f}s")
+          f"Scanned:            {scanned:,} packages\n"
+          f"Archives scanned:   {archives_scanned:,}\n"
+          f"Matched:            {matched:,}\n"
+          f"{action_past}:             {moved:,}\n"
+          f"Archives extracted: {archives_extracted:,}\n"
+          f"Skipped:            {skipped:,} (already existed)\n"
+          f"Time:               {elapsed:.1f}s")
 
 
 if __name__ == "__main__":

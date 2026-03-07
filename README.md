@@ -334,44 +334,72 @@ llmprep . -q
 ## dizdig
 
 Tool for BBS sysops, FTP archive maintainers, retro computing collectors, and anyone organizing
-large collections of vintage software packages. Sorts directories containing `FILE_ID.DIZ`
-description files by extension, content, size, with presets and exclude filters.
-No external dependencies — stdlib only, Python 3.8+.
+large collections of vintage software packages. Moves or copies packages from an input directory
+to a target directory based on file extensions, `FILE_ID.DIZ` content, size, presets, and exclude
+filters. Archive files (`.zip`, `.tar`, `.lzh`, `.arj`, `.rar`, …) are always peeked inside
+without extracting — matching archives are extracted to the target automatically.
+
+No external dependencies required for directory scanning, ZIP, and TAR archive support (stdlib).
+Optional: `pip install lhafile` for LZH/LHA support, `pip install libarchive-c` for ARJ/RAR/7Z/ACE and other formats.
 
 ### Basic Usage
 
 ```bash
-# Sort tracker music modules into a target folder
-dizdig music/tracker --preset tracker --dry-run
+# Move tracker music modules from inbox to sorted folder
+dizdig inbox/ tracker/ --preset tracker --dry-run
 
-# Sort 4DOS utilities by DIZ content
-dizdig utils/4dos --diz "4dos" --diz-mode text
+# Move 4DOS utilities matched by DIZ content
+dizdig inbox/ utils/ --diz "4dos" --diz-mode text
 
-# Sort small DOS programs, excluding broken ones
-dizdig dos/small --preset dos-exe --size "<= 100KB" --exclude diz:broken
+# Move small DOS programs, excluding broken ones
+dizdig inbox/ dos/ --preset dos-exe --size "<= 100KB" --exclude diz:broken
 
 # Copy (don't move) packages containing C++ source
-dizdig src/cpp --ext .cpp .h --copy
+dizdig inbox/ src/cpp/ --ext .cpp .h --copy
 
 # Match by regex in FILE_ID.DIZ
-dizdig releases --diz "v[0-9]+\.[0-9]+" --diz-mode regex
+dizdig inbox/ releases/ --diz "v[0-9]+\.[0-9]+" --diz-mode regex
+
+# Peek inside ZIP/ARJ/LZH archives for FILE_ID.DIZ and extensions (always on)
+dizdig downloads/ tracker/ --preset tracker --dry-run
 ```
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
+| `INPUT_DIR` | Source folder to scan for packages and archives |
 | `TARGET_DIR` | Destination folder (created if absent) |
 | `--ext EXT [EXT ...]` | File extensions to match (e.g. `.mod .s3m`) |
 | `--preset NAME` | Use a preset extension group (see table below) |
 | `--diz PATTERN` | Match text/pattern inside `FILE_ID.DIZ` |
 | `--diz-mode` | `text` (default), `wildcard`, or `regex` |
-| `--size EXPR` | Size filter, quoted (e.g. `">= 10KB"`). Repeatable for ranges. |
+| `--size EXPR` | Size filter, quoted (e.g. `">= 10KB"`). Repeatable for ranges. For archives, applies to total uncompressed size. |
 | `--exclude PREFIX:VALUE` | Exclude filter (see Exclude system below). Repeatable. |
 | `--and` | Require BOTH `--ext`/`--preset` AND `--diz` to match (default: OR) |
-| `--copy` | Copy packages instead of moving them |
-| `--dry-run`, `-n` | Show what would happen without moving/copying |
+| `--copy` | Copy packages / extract archives without removing originals |
+| `--dry-run`, `-n` | Show what would happen without moving/copying/extracting |
 | `-v`, `--version` | Show version and exit |
+
+### Archive Support
+
+dizdig always scans for archive files (`.zip`, `.arj`, `.lzh`, `.lha`, `.rar`, `.ace`, `.zoo`,
+`.arc`, `.gz`, `.tar`, `.bz2`, `.xz`, `.7z`, `.cab`) alongside extracted package directories.
+For each archive found it peeks inside to read `FILE_ID.DIZ`, collect file extensions, and measure
+uncompressed size — then applies all the usual filters. A matching archive is extracted to
+`TARGET_DIR/<archive-stem>/`.
+
+**Default (move):** extract contents → delete the original archive file.  
+**With `--copy`:** extract contents → leave the original archive in place.
+
+### Dependencies (optional, for archive peeking)
+
+| Format | Library | Install |
+|--------|---------|---------|
+| ZIP | `zipfile` (stdlib) | Built-in |
+| TAR/GZ/BZ2/XZ | `tarfile` (stdlib) | Built-in |
+| LZH/LHA | `lhafile` | `pip install lhafile` |
+| ARJ/RAR/7Z/ACE/others | `libarchive-c` | `pip install libarchive-c` + system libarchive |
 
 ### Preset Groups
 
@@ -393,9 +421,9 @@ Pass one or more `--exclude PREFIX:VALUE` flags to skip matching packages:
 
 | Prefix | Example | Effect |
 |--------|---------|--------|
-| `ext` | `--exclude ext:.exe` | Skip packages that contain a file with that extension |
-| `diz` | `--exclude diz:broken` | Skip packages whose `FILE_ID.DIZ` matches that text/pattern |
-| `size` | `--exclude size:">1MB"` | Skip packages matching the size expression |
+| `ext` | `--exclude ext:.exe` | Skip packages/archives that contain a file with that extension |
+| `diz` | `--exclude diz:broken` | Skip packages/archives whose `FILE_ID.DIZ` matches that text/pattern |
+| `size` | `--exclude size:">1MB"` | Skip packages/archives matching the size expression |
 
 Any matching exclude rule skips the package — rules are OR'd together.
 
@@ -412,6 +440,16 @@ OPERATOR VALUE[UNIT]
 - **Quoting required** on the shell: `--size ">= 10KB"` not `--size >= 10KB`
 - **Decimal values** supported: `--size "<= 1.5MB"`
 - **Multiple `--size`** flags combine as AND (range): `--size ">= 10KB" --size "<= 1MB"`
+
+### Version History
+
+#### v3.0.0 (dizdig)
+- Added mandatory `INPUT_DIR` argument — dizdig now moves/copies from `INPUT_DIR` to `TARGET_DIR`
+- Archive peeking always enabled: ZIP and TAR/GZ/BZ2/XZ via stdlib; optional `lhafile` for LZH/LHA; optional `libarchive-c` for ARJ/RAR/7Z/ACE and others
+- Matching archives are extracted to target (move: deletes original; copy: keeps original)
+- `--size` filter applies to uncompressed archive size when scanning archives
+- All existing filters (`--ext`, `--preset`, `--diz`, `--exclude`, `--and`) work on archive contents
+- Stats output now includes "Archives scanned" and "Archives extracted" counts
 
 ---
 

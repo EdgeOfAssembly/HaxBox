@@ -466,33 +466,35 @@ class TestPresets:
 class TestCLI:
     """Integration tests for the dizdig command-line interface."""
 
-    def test_no_arguments_prints_help_and_exits_zero(self, tmp_path: Path):
+    def test_no_arguments_prints_help_and_exits_zero(self):
         """Running with no arguments prints help text and exits 0."""
-        result = run_dizdig(cwd=tmp_path)
+        result = run_dizdig()
         assert result.returncode == 0
         assert "dizdig" in result.stdout.lower() or "usage" in result.stdout.lower()
 
-    def test_version_long_flag(self, tmp_path: Path):
+    def test_version_long_flag(self):
         """--version prints version string and exits 0."""
-        result = run_dizdig("--version", cwd=tmp_path)
+        result = run_dizdig("--version")
         assert result.returncode == 0
-        assert "2.0.0" in result.stdout
+        assert "3.0.0" in result.stdout
 
-    def test_version_short_flag(self, tmp_path: Path):
+    def test_version_short_flag(self):
         """-v prints version string and exits 0."""
-        result = run_dizdig("-v", cwd=tmp_path)
+        result = run_dizdig("-v")
         assert result.returncode == 0
-        assert "2.0.0" in result.stdout
+        assert "3.0.0" in result.stdout
 
-    def test_missing_target_gives_error(self, tmp_path: Path):
-        """Specifying --ext without TARGET_DIR produces a non-zero exit."""
-        result = run_dizdig("--ext", ".mod", cwd=tmp_path)
+    def test_missing_dirs_gives_error(self):
+        """Specifying --ext without INPUT_DIR/TARGET_DIR produces a non-zero exit."""
+        result = run_dizdig("--ext", ".mod")
         assert result.returncode != 0
 
     def test_no_ext_or_diz_or_preset_gives_error(self, tmp_path: Path):
-        """TARGET_DIR without --ext, --diz, or --preset produces a non-zero exit."""
+        """INPUT_DIR TARGET_DIR without --ext, --diz, or --preset produces a non-zero exit."""
+        src = tmp_path / "src"
+        src.mkdir()
         out = tmp_path / "out"
-        result = run_dizdig(str(out), cwd=tmp_path)
+        result = run_dizdig(str(src), str(out))
         assert result.returncode != 0
         combined = result.stderr + result.stdout
         assert any(kw in combined for kw in ("--ext", "--diz", "--preset", "must specify"))
@@ -502,7 +504,7 @@ class TestCLI:
         src = tmp_path / "src"
         pkg = make_pkg(src, "modpkg", "Great tracker module", {"song.mod": b"MOD"})
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", "--dry-run", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--dry-run")
         assert result.returncode == 0
         assert "[DRY]" in result.stdout
         assert pkg.exists()
@@ -513,7 +515,7 @@ class TestCLI:
         src = tmp_path / "src"
         pkg = make_pkg(src, "modpkg", "Tracker module", {"song.mod": b"MOD"})
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
         assert result.returncode == 0
         assert (out / "modpkg").exists()
         assert not pkg.exists()
@@ -523,7 +525,7 @@ class TestCLI:
         src = tmp_path / "src"
         pkg = make_pkg(src, "modpkg", "Tracker module", {"song.mod": b"MOD"})
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", "--copy", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--copy")
         assert result.returncode == 0
         assert (out / "modpkg").exists()
         assert pkg.exists()
@@ -533,7 +535,7 @@ class TestCLI:
         src = tmp_path / "src"
         make_pkg(src, "tracker_pkg", "Tracker stuff", {"tune.mod": b"MOD"})
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--preset", "tracker", "--dry-run", cwd=src)
+        result = run_dizdig(str(src), str(out), "--preset", "tracker", "--dry-run")
         assert result.returncode == 0
         assert "tracker_pkg" in result.stdout
 
@@ -544,7 +546,7 @@ class TestCLI:
         make_pkg(src, "cpp_pkg", "C++ source", {"main.cpp": b"int main(){}"})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--preset", "tracker", "--ext", ".cpp", "--dry-run", cwd=src
+            str(src), str(out), "--preset", "tracker", "--ext", ".cpp", "--dry-run"
         )
         assert result.returncode == 0
         assert "mod_pkg" in result.stdout
@@ -557,7 +559,7 @@ class TestCLI:
         make_pkg(src, "other_pkg", "Unrelated utility package")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", "4dos", "--diz-mode", "text", "--dry-run", cwd=src
+            str(src), str(out), "--diz", "4dos", "--diz-mode", "text", "--dry-run"
         )
         assert result.returncode == 0
         assert "4dos_pkg" in result.stdout
@@ -570,7 +572,7 @@ class TestCLI:
         make_pkg(src, "other_pkg", "Normal package")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", "*crack*", "--diz-mode", "wildcard", "--dry-run", cwd=src
+            str(src), str(out), "--diz", "*crack*", "--diz-mode", "wildcard", "--dry-run"
         )
         assert result.returncode == 0
         assert "crack_pkg" in result.stdout
@@ -583,7 +585,7 @@ class TestCLI:
         make_pkg(src, "v4_pkg", "Version 4.0 release notes")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", r"5\.[0-9]+", "--diz-mode", "regex", "--dry-run", cwd=src
+            str(src), str(out), "--diz", r"5\.[0-9]+", "--diz-mode", "regex", "--dry-run"
         )
         assert result.returncode == 0
         assert "v5_pkg" in result.stdout
@@ -597,7 +599,7 @@ class TestCLI:
         make_pkg(src, "cpp_and_diz", "windows library pack", {"main.cpp": b"code"})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--ext", ".cpp", "--diz", "windows", "--and", "--dry-run", cwd=src
+            str(src), str(out), "--ext", ".cpp", "--diz", "windows", "--and", "--dry-run"
         )
         assert result.returncode == 0
         assert "cpp_and_diz" in result.stdout
@@ -611,7 +613,7 @@ class TestCLI:
         make_pkg(src, "diz_pkg", "windows library pack", {"readme.txt": b"text"})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--ext", ".cpp", "--diz", "windows", "--dry-run", cwd=src
+            str(src), str(out), "--ext", ".cpp", "--diz", "windows", "--dry-run"
         )
         assert result.returncode == 0
         assert "cpp_pkg" in result.stdout
@@ -624,7 +626,7 @@ class TestCLI:
         make_pkg(src, "big", "Big pkg", {"a.mod": b"x" * (200 * 1024)})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--ext", ".mod", "--size", "<= 10KB", "--dry-run", cwd=src
+            str(src), str(out), "--ext", ".mod", "--size", "<= 10KB", "--dry-run"
         )
         assert result.returncode == 0
         assert "small" in result.stdout
@@ -638,9 +640,9 @@ class TestCLI:
         make_pkg(src, "huge", "Huge pkg", {"a.mod": b"x" * (2 * 1024 * 1024)})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--ext", ".mod",
+            str(src), str(out), "--ext", ".mod",
             "--size", ">= 1KB", "--size", "<= 100KB",
-            "--dry-run", cwd=src,
+            "--dry-run",
         )
         assert result.returncode == 0
         assert "medium" in result.stdout
@@ -654,7 +656,7 @@ class TestCLI:
         make_pkg(src, "clean_pkg", "No exe", {"tune.mod": b"MOD"})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--ext", ".mod", "--exclude", "ext:.exe", "--dry-run", cwd=src
+            str(src), str(out), "--ext", ".mod", "--exclude", "ext:.exe", "--dry-run"
         )
         assert result.returncode == 0
         assert "clean_pkg" in result.stdout
@@ -667,7 +669,7 @@ class TestCLI:
         make_pkg(src, "good_pkg", "This package is fine", {"tune.mod": b"MOD"})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--ext", ".mod", "--exclude", "diz:broken", "--dry-run", cwd=src
+            str(src), str(out), "--ext", ".mod", "--exclude", "diz:broken", "--dry-run"
         )
         assert result.returncode == 0
         assert "good_pkg" in result.stdout
@@ -680,7 +682,7 @@ class TestCLI:
         make_pkg(src, "small_pkg", "Small package", {"a.mod": b"x" * 100})
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--ext", ".mod", "--exclude", "size:>1MB", "--dry-run", cwd=src
+            str(src), str(out), "--ext", ".mod", "--exclude", "size:>1MB", "--dry-run"
         )
         assert result.returncode == 0
         assert "small_pkg" in result.stdout
@@ -689,7 +691,7 @@ class TestCLI:
     def test_invalid_exclude_format_produces_error(self, tmp_path: Path):
         """Invalid --exclude value produces a non-zero exit and error output."""
         result = run_dizdig(
-            str(tmp_path / "out"), "--ext", ".mod", "--exclude", "nocolon", cwd=tmp_path
+            str(tmp_path), str(tmp_path / "out"), "--ext", ".mod", "--exclude", "nocolon"
         )
         assert result.returncode != 0
         combined = result.stderr + result.stdout
@@ -702,17 +704,17 @@ class TestCLI:
         out = tmp_path / "out"
         out.mkdir()
         (out / "modpkg").mkdir()  # pre-create destination
-        result = run_dizdig(str(out), "--ext", ".mod", "--dry-run", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--dry-run")
         assert result.returncode == 0
         combined = result.stdout.lower()
         assert "skip" in combined or "exist" in combined
 
     def test_target_inside_scan_tree_is_handled(self, tmp_path: Path):
-        """Target dir nested inside scan tree doesn't crash and processes other packages."""
+        """Target dir nested inside input tree doesn't crash and processes other packages."""
         src = tmp_path / "src"
         make_pkg(src, "modpkg", "A module", {"tune.mod": b"MOD"})
-        out = src / "out"  # target is inside the scanned tree
-        result = run_dizdig(str(out), "--ext", ".mod", cwd=src)
+        out = src / "out"  # target is inside the input tree
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
         assert result.returncode == 0
         # modpkg should have been moved into the (nested) target
         assert (out / "modpkg").exists()
@@ -722,7 +724,7 @@ class TestCLI:
         src = tmp_path / "src"
         make_pkg(src, "pkg1", "A module", {"tune.mod": b"MOD"})
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
         assert result.returncode == 0
         for keyword in ("Scanned", "Matched", "Skipped", "Time"):
             assert keyword in result.stdout
@@ -733,7 +735,7 @@ class TestCLI:
         src = tmp_path / "src"
         make_pkg(src, "nomatch_pkg", "Plain text document", {"readme.txt": b"text"})
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
         assert result.returncode == 0
         assert not (out / "nomatch_pkg").exists()
         assert (src / "nomatch_pkg").exists()
@@ -752,7 +754,7 @@ class TestEdgeCases:
         (pkg / "FILE_ID.DIZ").write_text("A tracker module", encoding="utf-8")
         (pkg / "song.mod").write_bytes(b"MOD_DATA")
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", "--dry-run", cwd=tmp_path)
+        result = run_dizdig(str(tmp_path), str(out), "--ext", ".mod", "--dry-run")
         assert result.returncode == 0
         assert "pkg" in result.stdout
 
@@ -774,7 +776,7 @@ class TestEdgeCases:
         pkg.mkdir(parents=True, exist_ok=True)
         (pkg / "FILE_ID.DIZ").write_text("Empty package", encoding="utf-8")
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", "--dry-run", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--dry-run")
         assert result.returncode == 0
 
     def test_diz_only_empty_package_matches_via_diz_flag(self, tmp_path: Path):
@@ -785,7 +787,7 @@ class TestEdgeCases:
         (pkg / "FILE_ID.DIZ").write_text("Special tracker bundle", encoding="utf-8")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", "tracker", "--dry-run", cwd=src
+            str(src), str(out), "--diz", "tracker", "--dry-run"
         )
         assert result.returncode == 0
         assert "diz_only" in result.stdout
@@ -797,7 +799,7 @@ class TestEdgeCases:
         if not BBS_PATH.exists():
             pytest.skip("BBS test data not found")
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--preset", "dos-exe", "--dry-run", cwd=BBS_PATH)
+        result = run_dizdig(str(BBS_PATH), str(out), "--preset", "dos-exe", "--dry-run")
         assert result.returncode == 0
         assert "2m30" in result.stdout
 
@@ -808,7 +810,7 @@ class TestEdgeCases:
         out = tmp_path / "out"
         # '2M' and 'reliable' are words present in the 2m30 FILE_ID.DIZ
         result = run_dizdig(
-            str(out), "--diz", "reliable", "--diz-mode", "text", "--dry-run", cwd=BBS_PATH
+            str(BBS_PATH), str(out), "--diz", "reliable", "--diz-mode", "text", "--dry-run"
         )
         assert result.returncode == 0
         assert "2m30" in result.stdout
@@ -819,7 +821,7 @@ class TestEdgeCases:
             pytest.skip("4dos595 BBS sample not found")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", "command.com", "--diz-mode", "text", "--dry-run", cwd=BBS_PATH
+            str(BBS_PATH), str(out), "--diz", "command.com", "--diz-mode", "text", "--dry-run"
         )
         assert result.returncode == 0
         assert "4dos595" in result.stdout
@@ -830,7 +832,7 @@ class TestEdgeCases:
             pytest.skip("rkive14 BBS sample not found")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", "archiver", "--diz-mode", "text", "--dry-run", cwd=BBS_PATH
+            str(BBS_PATH), str(out), "--diz", "archiver", "--diz-mode", "text", "--dry-run"
         )
         assert result.returncode == 0
         assert "rkive14" in result.stdout
@@ -840,7 +842,7 @@ class TestEdgeCases:
         if not (BBS_PATH / "list91m").exists():
             pytest.skip("list91m BBS sample not found")
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--preset", "dos-exe", "--dry-run", cwd=BBS_PATH)
+        result = run_dizdig(str(BBS_PATH), str(out), "--preset", "dos-exe", "--dry-run")
         assert result.returncode == 0
         assert "list91m" in result.stdout
 
@@ -850,7 +852,7 @@ class TestEdgeCases:
             pytest.skip("6xopt072 BBS sample not found")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", "*6x86*", "--diz-mode", "wildcard", "--dry-run", cwd=BBS_PATH
+            str(BBS_PATH), str(out), "--diz", "*6x86*", "--diz-mode", "wildcard", "--dry-run"
         )
         assert result.returncode == 0
         assert "6xopt072" in result.stdout
@@ -861,7 +863,7 @@ class TestEdgeCases:
             pytest.skip("gifexe44 BBS sample not found")
         out = tmp_path / "out"
         result = run_dizdig(
-            str(out), "--diz", r"gif.*exe", "--diz-mode", "regex", "--dry-run", cwd=BBS_PATH
+            str(BBS_PATH), str(out), "--diz", r"gif.*exe", "--diz-mode", "regex", "--dry-run"
         )
         assert result.returncode == 0
         assert "gifexe44" in result.stdout
@@ -871,7 +873,7 @@ class TestEdgeCases:
         if not BBS_PATH.exists():
             pytest.skip("BBS test data not found")
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--preset", "dos-exe", "--dry-run", cwd=BBS_PATH)
+        result = run_dizdig(str(BBS_PATH), str(out), "--preset", "dos-exe", "--dry-run")
         assert result.returncode == 0
         # Multiple packages should be matched (2m30, 4dos595, list91m, qview231, etc.)
         matched = [
@@ -887,9 +889,458 @@ class TestEdgeCases:
         make_pkg(src, "match2", "Another module", {"b.mod": b"MOD"})
         make_pkg(src, "nomatch", "Document package", {"doc.txt": b"text"})
         out = tmp_path / "out"
-        result = run_dizdig(str(out), "--ext", ".mod", cwd=src)
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
         assert result.returncode == 0
         assert (out / "match1").exists()
         assert (out / "match2").exists()
         assert not (out / "nomatch").exists()
         assert (src / "nomatch").exists()
+
+
+# ── Archive helper unit tests ─────────────────────────────────────────────────
+
+
+class TestGetSupportedFormats:
+    """Tests for get_supported_formats() function."""
+
+    def test_zip_always_supported(self):
+        """ZIP is always available via stdlib."""
+        fmt = dizdig.get_supported_formats()
+        assert fmt["zip"] is True
+
+    def test_tar_always_supported(self):
+        """TAR/GZ/BZ2/XZ are always available via stdlib."""
+        fmt = dizdig.get_supported_formats()
+        assert fmt["tar"] is True
+
+    def test_returns_dict_with_required_keys(self):
+        """Function returns a dict containing at least zip, tar, lzh, libarchive."""
+        fmt = dizdig.get_supported_formats()
+        for key in ("zip", "tar", "lzh", "libarchive"):
+            assert key in fmt
+
+    def test_lzh_is_bool(self):
+        """lzh value is a boolean (True if lhafile installed, False otherwise)."""
+        fmt = dizdig.get_supported_formats()
+        assert isinstance(fmt["lzh"], bool)
+
+    def test_libarchive_is_bool(self):
+        """libarchive value is a boolean."""
+        fmt = dizdig.get_supported_formats()
+        assert isinstance(fmt["libarchive"], bool)
+
+
+class TestPeekArchive:
+    """Unit tests for the peek_archive() function."""
+
+    def _make_zip(self, path: Path, files: dict, diz: str | None = None) -> Path:
+        """Create a ZIP at *path* containing *files* and optionally FILE_ID.DIZ."""
+        import zipfile as zf
+        with zf.ZipFile(path, "w") as z:
+            if diz is not None:
+                z.writestr("FILE_ID.DIZ", diz.encode("cp437"))
+            for name, data in files.items():
+                z.writestr(name, data if isinstance(data, bytes) else data.encode())
+        return path
+
+    def test_peek_zip_returns_diz_content(self, tmp_path: Path):
+        """peek_archive on a ZIP with FILE_ID.DIZ returns its content."""
+        z = self._make_zip(
+            tmp_path / "test.zip",
+            {"song.mod": b"MOD"},
+            diz="Great tracker module",
+        )
+        result = dizdig.peek_archive(z)
+        assert result is not None
+        diz_content, exts, size = result
+        assert diz_content is not None
+        assert "great tracker module" in diz_content.lower()
+
+    def test_peek_zip_no_diz_returns_none_diz(self, tmp_path: Path):
+        """peek_archive on a ZIP without FILE_ID.DIZ returns None for diz_content."""
+        z = self._make_zip(tmp_path / "nodiz.zip", {"song.mod": b"MOD"})
+        result = dizdig.peek_archive(z)
+        assert result is not None
+        diz_content, exts, size = result
+        assert diz_content is None
+
+    def test_peek_zip_detects_extensions(self, tmp_path: Path):
+        """peek_archive returns the set of extensions found inside the ZIP."""
+        z = self._make_zip(
+            tmp_path / "multi.zip",
+            {"song.mod": b"MOD", "prog.exe": b"EXE", "readme.txt": b"text"},
+        )
+        result = dizdig.peek_archive(z)
+        assert result is not None
+        _, exts, _ = result
+        assert ".mod" in exts
+        assert ".exe" in exts
+        assert ".txt" in exts
+
+    def test_peek_zip_calculates_uncompressed_size(self, tmp_path: Path):
+        """peek_archive total_size equals sum of uncompressed file sizes."""
+        data = b"x" * 1000
+        z = self._make_zip(tmp_path / "sized.zip", {"a.bin": data, "b.bin": data})
+        result = dizdig.peek_archive(z)
+        assert result is not None
+        _, _, total_size = result
+        assert total_size == 2000
+
+    def test_peek_zip_diz_case_insensitive(self, tmp_path: Path):
+        """FILE_ID.DIZ is found regardless of case in the archive."""
+        import zipfile as zf
+        path = tmp_path / "case.zip"
+        with zf.ZipFile(path, "w") as z:
+            z.writestr("file_id.diz", b"lowercase diz")
+        result = dizdig.peek_archive(path)
+        assert result is not None
+        diz_content, _, _ = result
+        assert diz_content is not None
+
+    def test_peek_corrupt_archive_returns_none(self, tmp_path: Path):
+        """peek_archive on a corrupt/unreadable file returns None."""
+        bad = tmp_path / "bad.zip"
+        bad.write_bytes(b"this is not a zip file at all")
+        result = dizdig.peek_archive(bad)
+        assert result is None
+
+    def test_peek_real_4dos595_zip(self):
+        """peek_archive on the real 4dos595.zip finds FILE_ID.DIZ and .com/.exe."""
+        real_zip = BBS_PATH / "4dos595.zip"
+        if not real_zip.exists():
+            pytest.skip("4dos595.zip not found")
+        result = dizdig.peek_archive(real_zip)
+        assert result is not None
+        diz_content, exts, total_size = result
+        assert diz_content is not None
+        assert "4dos" in diz_content.lower()
+        # The archive contains DOS executables
+        assert ".com" in exts or ".exe" in exts
+        assert total_size > 0
+
+    def test_peek_tar_gz_returns_diz_and_extensions(self, tmp_path: Path):
+        """peek_archive works on .tar.gz archives via stdlib tarfile."""
+        import tarfile, io
+        path = tmp_path / "test.tar.gz"
+        buf_diz = b"A tarball package"
+        buf_mod = b"MOD_DATA"
+        with tarfile.open(path, "w:gz") as tf:
+            for name, data in [("FILE_ID.DIZ", buf_diz), ("song.mod", buf_mod)]:
+                info = tarfile.TarInfo(name=name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+        result = dizdig.peek_archive(path)
+        assert result is not None
+        diz_content, exts, size = result
+        assert diz_content is not None
+        assert "tarball" in diz_content.lower()
+        assert ".mod" in exts
+
+
+class TestExtractArchive:
+    """Unit tests for the extract_archive() function."""
+
+    def _make_zip(self, path: Path, files: dict) -> Path:
+        import zipfile as zf
+        with zf.ZipFile(path, "w") as z:
+            for name, data in files.items():
+                z.writestr(name, data if isinstance(data, bytes) else data.encode())
+        return path
+
+    def test_extract_zip_files_appear_in_dest(self, tmp_path: Path):
+        """Extracted ZIP files are present under the destination directory."""
+        z = self._make_zip(
+            tmp_path / "pkg.zip",
+            {"FILE_ID.DIZ": b"hello", "song.mod": b"MOD"},
+        )
+        dest = tmp_path / "out"
+        ok = dizdig.extract_archive(z, dest)
+        assert ok is True
+        assert (dest / "song.mod").exists()
+        assert (dest / "FILE_ID.DIZ").exists()
+
+    def test_extract_zip_creates_dest_if_missing(self, tmp_path: Path):
+        """extract_archive creates the destination directory when absent."""
+        z = self._make_zip(tmp_path / "pkg.zip", {"a.txt": b"hi"})
+        dest = tmp_path / "new" / "subdir"
+        assert not dest.exists()
+        ok = dizdig.extract_archive(z, dest)
+        assert ok is True
+        assert dest.is_dir()
+
+    def test_extract_zip_returns_false_on_corrupt(self, tmp_path: Path):
+        """extract_archive returns False for a corrupt archive."""
+        bad = tmp_path / "bad.zip"
+        bad.write_bytes(b"not a zip")
+        dest = tmp_path / "out"
+        ok = dizdig.extract_archive(bad, dest)
+        assert ok is False
+
+    def test_extract_tar_gz(self, tmp_path: Path):
+        """extract_archive works for .tar.gz archives."""
+        import tarfile, io
+        path = tmp_path / "pkg.tar.gz"
+        data = b"hello from tar"
+        with tarfile.open(path, "w:gz") as tf:
+            info = tarfile.TarInfo(name="hello.txt")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+        dest = tmp_path / "out"
+        ok = dizdig.extract_archive(path, dest)
+        assert ok is True
+        assert (dest / "hello.txt").read_bytes() == data
+
+    def test_extract_zip_path_traversal_skipped(self, tmp_path: Path):
+        """Zip entries with path-traversal names are silently skipped (zip-slip protection)."""
+        import zipfile as zf
+        path = tmp_path / "evil.zip"
+        dest = tmp_path / "out"
+        # Craft a zip with a traversal entry and a safe entry
+        with zf.ZipFile(path, "w") as z:
+            z.writestr("safe.txt", b"safe")
+            z.writestr("../escape.txt", b"escaped")
+        ok = dizdig.extract_archive(path, dest)
+        assert ok is True
+        assert (dest / "safe.txt").exists()
+        # The traversal file must NOT have been written outside dest
+        assert not (tmp_path / "escape.txt").exists()
+
+
+# ── Archive CLI integration tests ─────────────────────────────────────────────
+
+
+class TestCLIArchiveScan:
+    """Integration tests for archive peeking via the CLI (always enabled)."""
+
+    def _make_zip(self, path: Path, files: dict, diz: str | None = None) -> Path:
+        import zipfile as zf
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with zf.ZipFile(path, "w") as z:
+            if diz is not None:
+                z.writestr("FILE_ID.DIZ", diz.encode("cp437"))
+            for name, data in files.items():
+                z.writestr(name, data if isinstance(data, bytes) else data.encode())
+        return path
+
+    def test_archive_with_matching_ext_extracted_to_target(self, tmp_path: Path):
+        """ZIP containing a matching extension is extracted to target."""
+        src = tmp_path / "src"
+        self._make_zip(src / "mods.zip", {"tune.mod": b"MOD", "FILE_ID.DIZ": b"mods"})
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
+        assert result.returncode == 0
+        assert (out / "mods").is_dir()
+        assert (out / "mods" / "tune.mod").exists()
+
+    def test_archive_dry_run_reports_but_does_not_extract(self, tmp_path: Path):
+        """--dry-run reports the archive match but leaves it and target alone."""
+        src = tmp_path / "src"
+        z = self._make_zip(src / "mods.zip", {"tune.mod": b"MOD", "FILE_ID.DIZ": b"mods"})
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--dry-run")
+        assert result.returncode == 0
+        assert "[DRY]" in result.stdout
+        assert z.exists()
+        assert not (out / "mods").exists()
+
+    def test_archive_diz_match_extracts(self, tmp_path: Path):
+        """--diz matching FILE_ID.DIZ inside a ZIP reports a match (dry-run)."""
+        src = tmp_path / "src"
+        self._make_zip(src / "util.zip", {"prog.exe": b"EXE"}, diz="4DOS command replacement")
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--diz", "4dos", "--dry-run")
+        assert result.returncode == 0
+        assert "util" in result.stdout
+
+    def test_archive_no_match_not_extracted(self, tmp_path: Path):
+        """Archive whose contents don't match the filter is left alone."""
+        src = tmp_path / "src"
+        self._make_zip(src / "docs.zip", {"readme.txt": b"text"}, diz="plain docs")
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--dry-run")
+        assert result.returncode == 0
+        # "docs" should not appear as a matched/extracted item (no .mod inside)
+        assert "docs" not in result.stdout
+
+    def test_archive_size_filter_by_uncompressed_size(self, tmp_path: Path):
+        """--size filter applies to uncompressed content size of archive."""
+        src = tmp_path / "src"
+        # Small archive: ~100 bytes uncompressed
+        self._make_zip(src / "small.zip", {"a.mod": b"x" * 100})
+        # Large archive: ~200 KB uncompressed
+        self._make_zip(src / "big.zip", {"b.mod": b"x" * (200 * 1024)})
+        out = tmp_path / "out"
+        result = run_dizdig(
+            str(src), str(out), "--ext", ".mod", "--size", "<= 10KB", "--dry-run"
+        )
+        assert result.returncode == 0
+        assert "small" in result.stdout
+        assert "big" not in result.stdout
+
+    def test_archive_copy_leaves_original(self, tmp_path: Path):
+        """--copy extracts the archive but leaves the original .zip in place."""
+        src = tmp_path / "src"
+        z = self._make_zip(src / "mods.zip", {"tune.mod": b"MOD"})
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--copy")
+        assert result.returncode == 0
+        assert (out / "mods").is_dir()
+        assert z.exists()
+
+    def test_archive_move_deletes_original(self, tmp_path: Path):
+        """Default (move) extracts the archive and removes the original .zip."""
+        src = tmp_path / "src"
+        z = self._make_zip(src / "mods.zip", {"tune.mod": b"MOD"})
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
+        assert result.returncode == 0
+        assert (out / "mods").is_dir()
+        assert not z.exists()
+
+    def test_archive_exclude_ext_inside_archive(self, tmp_path: Path):
+        """--exclude ext: skips archives that contain the excluded extension."""
+        src = tmp_path / "src"
+        self._make_zip(src / "withexe.zip", {"prog.exe": b"EXE", "tune.mod": b"MOD"})
+        self._make_zip(src / "clean.zip", {"tune.mod": b"MOD"})
+        out = tmp_path / "out"
+        result = run_dizdig(
+            str(src), str(out), "--ext", ".mod", "--exclude", "ext:.exe", "--dry-run"
+        )
+        assert result.returncode == 0
+        assert "clean" in result.stdout
+        assert "withexe" not in result.stdout
+
+    def test_archive_skip_when_dest_exists(self, tmp_path: Path):
+        """Archive extraction is skipped when destination directory already exists."""
+        src = tmp_path / "src"
+        self._make_zip(src / "mods.zip", {"tune.mod": b"MOD"})
+        out = tmp_path / "out"
+        (out / "mods").mkdir(parents=True)  # pre-create destination
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
+        assert result.returncode == 0
+        combined = result.stdout.lower()
+        assert "skip" in combined or "exist" in combined
+
+    def test_stats_include_archive_counts(self, tmp_path: Path):
+        """Stats output includes 'Archives scanned' and 'Archives extracted' lines."""
+        src = tmp_path / "src"
+        self._make_zip(src / "mods.zip", {"tune.mod": b"MOD"})
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
+        assert result.returncode == 0
+        assert "Archives scanned" in result.stdout
+        assert "Archives extracted" in result.stdout
+
+    def test_real_4dos595_zip_extracted_by_ext(self, tmp_path: Path):
+        """Real 4dos595.zip is matched by --preset dos-exe and reported (dry-run)."""
+        if not (BBS_PATH / "4dos595.zip").exists():
+            pytest.skip("4dos595.zip not found")
+        src = tmp_path / "src"
+        src.mkdir()
+        import shutil
+        shutil.copy(BBS_PATH / "4dos595.zip", src / "4dos595.zip")
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--preset", "dos-exe", "--dry-run")
+        assert result.returncode == 0
+        assert "4dos595" in result.stdout
+
+
+# ── Archive edge-case tests ───────────────────────────────────────────────────
+
+
+class TestArchiveEdgeCases:
+    """Edge cases for archive peeking and extraction."""
+
+    def _make_zip(self, path: Path, files: dict, diz: str | None = None) -> Path:
+        import zipfile as zf
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with zf.ZipFile(path, "w") as z:
+            if diz is not None:
+                z.writestr("FILE_ID.DIZ", diz.encode("cp437"))
+            for name, data in files.items():
+                z.writestr(name, data if isinstance(data, bytes) else data.encode())
+        return path
+
+    def test_empty_archive_no_crash(self, tmp_path: Path):
+        """Archive with no files inside doesn't crash and returns empty result."""
+        import zipfile as zf
+        path = tmp_path / "empty.zip"
+        with zf.ZipFile(path, "w"):
+            pass  # empty archive
+        result = dizdig.peek_archive(path)
+        # Should return a valid (empty) tuple, not None
+        assert result is not None
+        diz_content, exts, size = result
+        assert diz_content is None
+        assert len(exts) == 0
+        assert size == 0
+
+    def test_archive_in_target_tree_is_skipped(self, tmp_path: Path):
+        """Archives already inside the target tree are not processed again."""
+        src = tmp_path / "src"
+        out = tmp_path / "out"
+        # Place an archive inside the target — it must be ignored
+        out.mkdir(parents=True)
+        self._make_zip(out / "intarget.zip", {"tune.mod": b"MOD"})
+        # Also put a real package in src so the scan has something to do
+        make_pkg(src, "pkg", "tracker", {"tune.mod": b"MOD"})
+        result = run_dizdig(str(src), str(out), "--ext", ".mod", "--dry-run")
+        assert result.returncode == 0
+        # "intarget" should NOT appear as a matched archive
+        assert "intarget" not in result.stdout
+
+    def test_diz_in_subdirectory_inside_archive(self, tmp_path: Path):
+        """FILE_ID.DIZ nested in a subdir inside the archive is still detected."""
+        import zipfile as zf
+        path = tmp_path / "nested.zip"
+        with zf.ZipFile(path, "w") as z:
+            z.writestr("subdir/FILE_ID.DIZ", b"nested diz content")
+            z.writestr("subdir/song.mod", b"MOD")
+        result = dizdig.peek_archive(path)
+        assert result is not None
+        diz_content, exts, _ = result
+        assert diz_content is not None
+        assert "nested diz" in diz_content.lower()
+        assert ".mod" in exts
+
+    def test_archive_preset_match(self, tmp_path: Path):
+        """--preset tracker matches a ZIP containing tracker module files."""
+        src = tmp_path / "src"
+        self._make_zip(src / "tracks.zip", {"intro.mod": b"M", "main.s3m": b"S"})
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--preset", "tracker", "--dry-run")
+        assert result.returncode == 0
+        assert "tracks" in result.stdout
+
+    def test_archive_and_logic_requires_both(self, tmp_path: Path):
+        """--and requires both extension AND DIZ match inside the archive."""
+        src = tmp_path / "src"
+        # Has .mod but DIZ doesn't mention 'special'
+        self._make_zip(src / "nomatch.zip", {"tune.mod": b"MOD"}, diz="generic music pack")
+        # Has .mod AND DIZ mentions 'special'
+        self._make_zip(src / "match.zip", {"tune.mod": b"MOD"}, diz="special tracker")
+        out = tmp_path / "out"
+        result = run_dizdig(
+            str(src), str(out), "--ext", ".mod", "--diz", "special", "--and", "--dry-run"
+        )
+        assert result.returncode == 0
+        assert "match" in result.stdout
+        assert "nomatch" not in result.stdout
+
+    def test_tar_gz_compound_suffix_stripped_from_dest_name(self, tmp_path: Path):
+        """pkg.tar.gz extracts to dest/pkg/, not dest/pkg.tar/."""
+        import tarfile, io
+        src = tmp_path / "src"
+        src.mkdir()
+        path = src / "myarchive.tar.gz"
+        data = b"x" * 100
+        with tarfile.open(path, "w:gz") as tf:
+            info = tarfile.TarInfo(name="song.mod")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+        out = tmp_path / "out"
+        result = run_dizdig(str(src), str(out), "--ext", ".mod")
+        assert result.returncode == 0
+        # Destination must be out/myarchive/, not out/myarchive.tar/
+        assert (out / "myarchive").is_dir()
+        assert not (out / "myarchive.tar").exists()
